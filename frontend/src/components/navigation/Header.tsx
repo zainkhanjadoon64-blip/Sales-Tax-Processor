@@ -1,5 +1,5 @@
 import { Search, Bell, Settings, Menu, X } from 'lucide-react'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useNotifications, useUnreadCount, useMarkAsRead, useMarkAllAsRead } from '../../features/notifications/hooks/useNotifications'
 import { apiClient } from '../../services/apiClient'
@@ -32,31 +32,43 @@ export function Header() {
 
   const unreadCount = unreadCountData?.count || 0
 
-  // Global search with debounce
-  useEffect(() => {
-    if (searchQuery.length < 2) {
+  const runSearch = useCallback(async (query: string) => {
+    const trimmedQuery = query.trim()
+    if (trimmedQuery.length < 2) {
       setSearchResults(null)
       setShowSearchResults(false)
       return
     }
 
     clearTimeout(searchTimeout.current)
-    searchTimeout.current = setTimeout(async () => {
-      setIsSearching(true)
-      try {
-        const results = await apiClient.get<SearchResult>(`/search/?q=${encodeURIComponent(searchQuery)}`)
-        setSearchResults(results)
-        setShowSearchResults(true)
-      } catch (err) {
-        console.error('Search failed:', err)
-        setSearchResults(null)
-      } finally {
-        setIsSearching(false)
-      }
+    setIsSearching(true)
+    setShowSearchResults(true)
+    try {
+      const results = await apiClient.get<SearchResult>(`/search/?q=${encodeURIComponent(trimmedQuery)}`)
+      setSearchResults(results)
+    } catch (err) {
+      console.error('Search failed:', err)
+      setSearchResults(null)
+    } finally {
+      setIsSearching(false)
+    }
+  }, [])
+
+  // Global search with debounce
+  useEffect(() => {
+    if (searchQuery.trim().length < 2) {
+      setSearchResults(null)
+      setShowSearchResults(false)
+      return
+    }
+
+    clearTimeout(searchTimeout.current)
+    searchTimeout.current = setTimeout(() => {
+      void runSearch(searchQuery)
     }, 400)
 
     return () => clearTimeout(searchTimeout.current)
-  }, [searchQuery])
+  }, [searchQuery, runSearch])
 
   // Close search results on click outside
   useEffect(() => {
@@ -119,10 +131,26 @@ export function Header() {
         <button className="lg:hidden p-2 rounded-lg hover:bg-gray-100">
           <Menu className="h-5 w-5" />
         </button>
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <form
+          className="relative flex-1"
+          role="search"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void runSearch(searchQuery)
+          }}
+        >
+          <button
+            type="submit"
+            disabled={searchQuery.trim().length < 2 || isSearching}
+            aria-label="Search"
+            title="Search"
+            className="search-shine group absolute left-1 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center overflow-hidden rounded-md text-gray-400 transition-colors hover:bg-primary-50 hover:text-primary-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:pointer-events-none disabled:opacity-50"
+          >
+            <Search className={clsx('relative z-10 h-4 w-4', isSearching && 'animate-pulse')} aria-hidden="true" />
+          </button>
           <input
-            type="text"
+            type="search"
+            aria-label="Search clients, documents, and challans"
             placeholder="Search clients, documents, challans..."
             value={searchQuery}
             onChange={(e) => {
@@ -130,10 +158,12 @@ export function Header() {
               if (e.target.value.length < 2) setShowSearchResults(false)
             }}
             onFocus={() => { if (searchResults) setShowSearchResults(true) }}
-            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-10 pr-4 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
           {searchQuery && (
             <button
+              type="button"
+              aria-label="Clear search"
               onClick={() => { setSearchQuery(''); setSearchResults(null); setShowSearchResults(false) }}
               className="absolute right-3 top-1/2 -translate-y-1/2"
             >
@@ -231,7 +261,7 @@ export function Header() {
               )}
             </div>
           )}
-        </div>
+        </form>
       </div>
 
       <div className="flex items-center gap-4">
