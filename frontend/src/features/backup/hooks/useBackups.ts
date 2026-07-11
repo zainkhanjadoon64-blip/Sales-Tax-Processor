@@ -5,7 +5,10 @@ import type { Backup } from '../types/backup';
 export function useBackups() {
   return useQuery<Backup[]>({
     queryKey: ['backups'],
-    queryFn: () => backupService.getAll(),
+    queryFn: async () => {
+      const result = await backupService.getAll();
+      return Array.isArray(result) ? result : [];
+    },
   });
 }
 

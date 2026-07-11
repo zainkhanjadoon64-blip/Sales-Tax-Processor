@@ -5,7 +5,10 @@ import type { Notification } from '../types/notification';
 export function useNotifications(limit = 20) {
   return useQuery<Notification[]>({
     queryKey: ['notifications', limit],
-    queryFn: () => notificationService.getAll({ limit }),
+    queryFn: async () => {
+      const result = await notificationService.getAll({ limit });
+      return Array.isArray(result) ? result : [];
+    },
     staleTime: 1000 * 60 * 1,
     refetchInterval: 1000 * 60 * 5,
   });

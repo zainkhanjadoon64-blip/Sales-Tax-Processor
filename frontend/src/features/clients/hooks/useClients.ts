@@ -92,7 +92,10 @@ export function useExportClients() {
 export function useClientActivity(clientId: string) {
   return useQuery<ClientActivity[]>({
     queryKey: ['client-activity', clientId],
-    queryFn: () => clientService.getActivity(clientId),
+    queryFn: async () => {
+      const result = await clientService.getActivity(clientId);
+      return Array.isArray(result) ? result : [];
+    },
     enabled: !!clientId,
     staleTime: 1000 * 60 * 1, // 1 minute
   });
