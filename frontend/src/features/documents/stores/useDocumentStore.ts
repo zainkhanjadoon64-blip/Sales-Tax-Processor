@@ -98,7 +98,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   uploadsThisMonth: 0,
 
   // Data actions
-  setDocuments: (docs) => set({ documents: docs }),
+  setDocuments: (docs) => set({ documents: docs ?? [] }),
   setTotalCount: (count) => set({ totalCount: count }),
   setCurrentPage: (page) => set({ currentPage: page }),
   setPageSize: (size) => set({ pageSize: size, currentPage: 1 }),

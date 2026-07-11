@@ -47,9 +47,8 @@ export function useDocuments() {
         const filters = buildFilters()
         console.log('[useDocuments] Fetching documents with filters:', filters)
         const result = await documentService.getDocuments(filters)
-        console.log('[useDocuments] Received result:', result)
-        store.setDocuments(result.data)
-        store.setTotalCount(result.total)
+        store.setDocuments(result?.data ?? [])
+        store.setTotalCount(result?.total ?? 0)
         return result
       } catch (err: any) {
         console.error('[useDocuments] Error fetching documents:', err)
