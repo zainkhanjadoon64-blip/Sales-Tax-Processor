@@ -25,6 +25,8 @@ export default defineConfig({
     port: 5173,
     host: '0.0.0.0',
     strictPort: false,
+    // Allow all hosts so the v0 preview proxy can reach the dev server
+    allowedHosts: true,
     proxy: {
       '/api': {
         target: 'http://localhost:8000',
