@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, FileText, DollarSign, CheckSquare, TrendingUp, Loader2, AlertCircle } from 'lucide-react';
 import { useDashboard } from '@/features/dashboard/hooks/useDashboard';

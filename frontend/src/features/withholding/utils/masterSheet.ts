@@ -82,7 +82,7 @@ export function buildMasterSheetData(
             period: monthInfo.period,
             challan_number: record.challan_number,
             payment_date: record.payment_date,
-            remarks: record.remarks ?? null,
+            remarks: (record as { remarks?: string | null }).remarks ?? null,
           },
         };
       }

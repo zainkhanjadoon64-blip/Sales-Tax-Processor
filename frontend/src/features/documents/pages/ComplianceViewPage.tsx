@@ -4,7 +4,6 @@ import { useComplianceStatus, useMissingDocuments } from '../hooks/useDocuments'
 import { ComplianceSummary } from '../components/ComplianceSummary'
 import { MONTHS } from '../types/document'
 import type { DocumentCategory } from '../types/document'
-import { useNavigate } from 'react-router-dom'
 
 const COMPLIANCE_CATEGORIES: DocumentCategory[] = [
   'Sales Tax Return',
@@ -26,32 +25,11 @@ function StatusIcon({ status }: { status: string }) {
   return <div className="h-4 w-4 rounded-full border-2 border-slate-300" />
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    uploaded: 'bg-emerald-100 text-emerald-700',
-    missing: 'bg-red-100 text-red-700',
-    pending: 'bg-amber-100 text-amber-700',
-    not_required: 'bg-slate-100 text-slate-500',
-  }
-  const labels: Record<string, string> = {
-    uploaded: 'Uploaded',
-    missing: 'Missing',
-    pending: 'Pending',
-    not_required: 'N/A',
-  }
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${styles[status] || styles.not_required}`}>
-      {labels[status] || status}
-    </span>
-  )
-}
-
 export function ComplianceViewPage() {
   const [selectedClientId, setSelectedClientId] = useState<string>('')
   const [year, setYear] = useState(new Date().getFullYear())
-  const navigate = useNavigate()
 
-  const { data: complianceData, isLoading: loadingCompliance } = useComplianceStatus(
+  const { data: complianceData } = useComplianceStatus(
     selectedClientId || 'placeholder',
     year
   )

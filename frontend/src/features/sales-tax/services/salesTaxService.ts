@@ -26,7 +26,7 @@ export const salesTaxService = {
       formData.append('client_id', data.client_id);
       formData.append('filing_year', data.filing_year.toString());
       formData.append('filing_month', data.filing_month.toString());
-      formData.append('status', data.status);
+      formData.append('status', data.status ?? '');
       if (data.filing_date !== null && data.filing_date !== undefined) {
         formData.append('filing_date', data.filing_date);
       }

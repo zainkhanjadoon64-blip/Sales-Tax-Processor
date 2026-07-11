@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { withholdingService } from '../services/withholdingService';
-import type { WithholdingRecordCreate, WithholdingRecordUpdate, WithholdingFilters, WithholdingListResponse, ImportChallanResponse, ImportStatementResponse, ImportPreviewResponse } from '../types/withholding';
+import type { WithholdingRecordCreate, WithholdingRecordUpdate, WithholdingFilters, WithholdingListResponse } from '../types/withholding';
 
 export function useWithholdingRecords(filters?: WithholdingFilters) {
   return useQuery<WithholdingListResponse>({

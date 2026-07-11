@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Document, ViewMode, SortField, SortOrder, UploadProgress } from '../types/document'
+import type { Document, ViewMode, UploadProgress } from '../types/document'
 
 interface DocumentSelection {
   selectedIds: Set<string>
