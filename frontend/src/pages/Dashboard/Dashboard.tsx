@@ -28,14 +28,14 @@ export function Dashboard() {
   const navigate = useNavigate();
   const { data, isLoading, isError } = useDashboard();
 
-  const stats = data ? [
-    { name: 'Total Clients', value: String(data.stats.total_clients), icon: Users, color: 'text-primary-600 bg-primary-100' },
-    { name: 'Sales Tax Returns', value: String(data.stats.total_sales_tax), icon: FileText, color: 'text-green-600 bg-green-100' },
-    { name: 'Withholding Challans', value: String(data.stats.total_withholding), icon: DollarSign, color: 'text-blue-600 bg-blue-100' },
-    { name: 'Pending Tasks', value: String(data.stats.pending_tasks), icon: CheckSquare, color: 'text-amber-600 bg-amber-100' },
-    { name: 'Overdue Returns', value: String(data.stats.overdue_sales_tax), icon: AlertCircle, color: 'text-red-600 bg-red-100' },
-    { name: 'Filed This Month', value: String(data.stats.filings_this_month), icon: FileText, color: 'text-teal-600 bg-teal-100' },
-    { name: 'Documents', value: String(data.stats.total_documents), icon: FileText, color: 'text-purple-600 bg-purple-100' },
+  const stats = data?.stats ? [
+    { name: 'Total Clients', value: String(data.stats.total_clients ?? 0), icon: Users, color: 'text-primary-600 bg-primary-100' },
+    { name: 'Sales Tax Returns', value: String(data.stats.total_sales_tax ?? 0), icon: FileText, color: 'text-green-600 bg-green-100' },
+    { name: 'Withholding Challans', value: String(data.stats.total_withholding ?? 0), icon: DollarSign, color: 'text-blue-600 bg-blue-100' },
+    { name: 'Pending Tasks', value: String(data.stats.pending_tasks ?? 0), icon: CheckSquare, color: 'text-amber-600 bg-amber-100' },
+    { name: 'Overdue Returns', value: String(data.stats.overdue_sales_tax ?? 0), icon: AlertCircle, color: 'text-red-600 bg-red-100' },
+    { name: 'Filed This Month', value: String(data.stats.filings_this_month ?? 0), icon: FileText, color: 'text-teal-600 bg-teal-100' },
+    { name: 'Documents', value: String(data.stats.total_documents ?? 0), icon: FileText, color: 'text-purple-600 bg-purple-100' },
   ] : [];
 
   return (
@@ -143,7 +143,7 @@ export function Dashboard() {
               <h2 className="text-lg font-semibold text-slate-900">Recent Activity</h2>
             </div>
             <div className="p-6">
-              {data!.recent_activity.length === 0 ? (
+              {!data?.recent_activity || data.recent_activity.length === 0 ? (
                 <div className="text-center py-8 text-slate-500">
                   <TrendingUp className="h-12 w-12 mx-auto mb-4 text-slate-300" />
                   <p className="text-lg">No recent activity</p>
@@ -151,7 +151,7 @@ export function Dashboard() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {data!.recent_activity.map((activity: RecentActivity) => {
+                  {data.recent_activity.map((activity: RecentActivity) => {
                     const Icon = getActivityIcon(activity.type);
                     const color = activityColors[activity.type] || 'text-slate-600 bg-slate-100';
                     const timeAgo = formatTimeAgo(activity.created_at);
