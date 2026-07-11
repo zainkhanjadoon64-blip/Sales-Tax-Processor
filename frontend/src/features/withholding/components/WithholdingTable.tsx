@@ -95,7 +95,7 @@ export function WithholdingTable({
   });
 
   if (loading) return <div className="card p-8 text-center text-gray-500">Loading withholding records...</div>;
-  if (!data.length) return <div className="card p-8 text-center text-gray-500">No withholding records found.</div>;
+  if (!data?.length) return <div className="card p-8 text-center text-gray-500">No withholding records found.</div>;
 
   return (
     <div className="space-y-4">

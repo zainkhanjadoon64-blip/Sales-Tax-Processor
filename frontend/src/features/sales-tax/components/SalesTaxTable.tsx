@@ -128,7 +128,7 @@ export function SalesTaxTable({
     );
   }
 
-  if (!data.length) {
+  if (!data?.length) {
     return (
       <div className="card p-8 text-center text-gray-500">
         No sales tax records found. Create one to get started.

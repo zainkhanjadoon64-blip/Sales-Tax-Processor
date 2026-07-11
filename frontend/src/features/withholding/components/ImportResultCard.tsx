@@ -68,7 +68,7 @@ const ChallanDetails: React.FC<{ result: ImportChallanResponse }> = ({ result })
       </div>
     ))}
     <p className="text-xs text-green-500 mt-1">Saved: {result.file.file_name}</p>
-    {result.warnings.length > 0 && (
+    {result.warnings?.length > 0 && (
       <div className="mt-2">
         <p className="font-medium text-amber-600">Warnings:</p>
         <ul className="list-disc list-inside text-amber-600 text-xs">
@@ -98,8 +98,8 @@ const StatementDetails: React.FC<{ result: ImportStatementResponse }> = ({ resul
         </li>
       ))}
     </ul>
-    <p><span className="font-medium">Records created:</span> {result.records.length}</p>
-    {result.errors.length > 0 && (
+    <p><span className="font-medium">Records created:</span> {result.records?.length ?? 0}</p>
+    {result.errors?.length > 0 && (
       <div className="mt-2">
         <p className="font-medium text-red-600">Errors:</p>
         <ul className="list-disc list-inside text-red-600 text-xs">
@@ -107,7 +107,7 @@ const StatementDetails: React.FC<{ result: ImportStatementResponse }> = ({ resul
         </ul>
       </div>
     )}
-    {result.warnings.length > 0 && (
+    {result.warnings?.length > 0 && (
       <div className="mt-2">
         <p className="font-medium text-amber-600">Warnings:</p>
         <ul className="list-disc list-inside text-amber-600 text-xs">

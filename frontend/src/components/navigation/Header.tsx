@@ -96,11 +96,11 @@ export function Header() {
   }
 
   const totalResults = searchResults
-    ? searchResults.clients.length +
-      searchResults.documents.length +
-      searchResults.withholding.length +
-      searchResults.tasks.length +
-      searchResults.sales_tax.length
+    ? (searchResults.clients?.length ?? 0) +
+      (searchResults.documents?.length ?? 0) +
+      (searchResults.withholding?.length ?? 0) +
+      (searchResults.tasks?.length ?? 0) +
+      (searchResults.sales_tax?.length ?? 0)
     : 0
 
   const getNotificationIcon = (type: string) => {
@@ -152,7 +152,7 @@ export function Header() {
                 <div className="text-center py-6 text-sm text-gray-500">No results found</div>
               ) : (
                 <div className="py-2">
-                  {searchResults!.clients.length > 0 && (
+                  {searchResults?.clients?.length > 0 && (
                     <div>
                       <div className="px-4 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Clients</div>
                       {searchResults!.clients.map((client) => (
@@ -167,7 +167,7 @@ export function Header() {
                       ))}
                     </div>
                   )}
-                  {searchResults!.sales_tax.length > 0 && (
+                  {searchResults?.sales_tax?.length > 0 && (
                     <div>
                       <div className="px-4 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mt-2">Sales Tax</div>
                       {searchResults!.sales_tax.map((st) => (
@@ -182,7 +182,7 @@ export function Header() {
                       ))}
                     </div>
                   )}
-                  {searchResults!.withholding.length > 0 && (
+                  {searchResults?.withholding?.length > 0 && (
                     <div>
                       <div className="px-4 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mt-2">Withholding</div>
                       {searchResults!.withholding.map((w) => (
@@ -197,7 +197,7 @@ export function Header() {
                       ))}
                     </div>
                   )}
-                  {searchResults!.tasks.length > 0 && (
+                  {searchResults?.tasks?.length > 0 && (
                     <div>
                       <div className="px-4 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mt-2">Tasks</div>
                       {searchResults!.tasks.map((t) => (
@@ -212,7 +212,7 @@ export function Header() {
                       ))}
                     </div>
                   )}
-                  {searchResults!.documents.length > 0 && (
+                  {searchResults?.documents?.length > 0 && (
                     <div>
                       <div className="px-4 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mt-2">Documents</div>
                       {searchResults!.documents.map((d) => (

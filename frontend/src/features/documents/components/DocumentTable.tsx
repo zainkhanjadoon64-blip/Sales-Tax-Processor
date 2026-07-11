@@ -23,7 +23,7 @@ function formatDate(dateStr: string): string {
 }
 
 export function DocumentTable({ documents, onDownload, onDelete, onView }: DocumentTableProps) {
-  if (documents.length === 0) {
+  if (!documents?.length) {
     return (
       <div className="text-center py-12 text-slate-500">
         <FileText className="h-12 w-12 mx-auto mb-4 text-slate-300" />
