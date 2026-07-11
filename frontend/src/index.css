@@ -76,26 +76,6 @@
 }
 
 @layer utilities {
-  .search-shine::after {
-    content: '';
-    position: absolute;
-    inset: -50%;
-    transform: translateX(-140%) rotate(20deg);
-    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.85), transparent);
-    transition: transform 500ms ease;
-  }
-
-  .search-shine:hover::after,
-  .search-shine:focus-visible::after {
-    transform: translateX(140%) rotate(20deg);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .search-shine::after {
-      display: none;
-    }
-  }
-
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--muted)) transparent;
