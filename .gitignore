@@ -5,6 +5,7 @@ venv/
 .pytest_cache/
 .vite/
 __pycache__/
+dist/
 logs/
 storage/
 backups/
