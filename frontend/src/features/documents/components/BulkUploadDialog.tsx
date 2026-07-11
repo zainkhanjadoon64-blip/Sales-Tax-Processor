@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useRef } from 'react'
-import { X, Upload, FileText, Sheet, AlertCircle, CheckCircle2, Loader2, Trash2 } from 'lucide-react'
+import { X, Upload, FileText, Sheet, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 import { useBatchUpload } from '../hooks/useDocuments'
 import { useDocumentStore } from '../stores/useDocumentStore'
-import type { DocumentCategory, Document } from '../types/document'
+import type { DocumentCategory } from '../types/document'
 import { DOCUMENT_CATEGORY_OPTIONS, MONTHS, formatFileSize } from '../types/document'
 
 interface BulkUploadDialogProps {
@@ -20,7 +20,7 @@ interface QueuedFile {
 
 export function BulkUploadDialog({ isOpen, onClose, defaultClientId }: BulkUploadDialogProps) {
   const [files, setFiles] = useState<QueuedFile[]>([])
-  const [clientId, setClientId] = useState(defaultClientId || '')
+  const [clientId] = useState(defaultClientId || '')
   const [docCategory, setDocCategory] = useState<DocumentCategory | ''>('')
   const [taxYear, setTaxYear] = useState<number>(new Date().getFullYear())
   const [taxMonth, setTaxMonth] = useState<number>(new Date().getMonth() + 1)

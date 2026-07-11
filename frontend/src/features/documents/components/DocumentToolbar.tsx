@@ -3,7 +3,7 @@ import { Search, SlidersHorizontal, X, ArrowUpDown } from 'lucide-react'
 import { useFilterStore } from '../stores/useFilterStore'
 import { useDocumentStore } from '../stores/useDocumentStore'
 import { ViewToggle } from './ViewToggle'
-import type { SortField, SortOrder, FilingStatus, DocumentCategory, DocumentType } from '../types/document'
+import type { SortField, DocumentType } from '../types/document'
 import {
   DOCUMENT_CATEGORY_OPTIONS,
   FILING_STATUS_OPTIONS,
@@ -199,7 +199,6 @@ function FilterPanel() {
   const {
     docCategories, toggleDocCategory,
     taxYear, setTaxYear,
-    taxMonths, toggleTaxMonth,
     filingStatus, setFilingStatus,
     fileType, setFileType,
     isMissing, setIsMissing,

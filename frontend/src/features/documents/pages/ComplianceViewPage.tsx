@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { Shield, ChevronLeft, ChevronRight, Upload, Search, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { useState } from 'react'
+import { Shield, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { useComplianceStatus, useMissingDocuments } from '../hooks/useDocuments'
 import { ComplianceSummary } from '../components/ComplianceSummary'
 import { MONTHS } from '../types/document'

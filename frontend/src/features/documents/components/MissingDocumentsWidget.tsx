@@ -1,4 +1,3 @@
-import React from 'react'
 import { AlertTriangle, ExternalLink } from 'lucide-react'
 import { useMissingDocuments } from '../hooks/useDocuments'
 import { MONTHS } from '../types/document'

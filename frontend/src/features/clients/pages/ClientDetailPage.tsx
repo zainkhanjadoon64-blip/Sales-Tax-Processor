@@ -163,7 +163,8 @@ export function ClientDetailPage() {
     (async () => {
       try {
         const { documentService } = await import('../../documents/services/documentService');
-        const blob = await documentService.download(previewDocument.id);
+        const arrayBuffer = await documentService.getFileAsArrayBuffer(previewDocument.id);
+        const blob = new Blob([arrayBuffer]);
         if (cancelled) return;
         setPreviewUrl((prev) => {
           if (prev) URL.revokeObjectURL(prev);
@@ -186,7 +187,7 @@ export function ClientDetailPage() {
   const { data: activityData, isLoading: activityLoading } = useClientActivity(clientId!);
   const { data: salesTaxData, refetch: refetchSalesTax } = useSalesTaxByClient(clientId!);
   const { data: withholdingData, refetch: refetchWithholding } = useWithholdingByClient(clientId!);
-  const { data: documentsData, refetch: refetchDocs } = useDocuments({ client_id: clientId, limit: 100 });
+  const { documents: documentsData, refetch: refetchDocs } = useDocuments();
   const { data: tasksData, refetch: refetchTasks } = useTasks({ client_id: clientId, limit: 100 });
   const { data: reportsData, refetch: refetchReports } = useReports();
 
@@ -211,7 +212,7 @@ export function ClientDetailPage() {
   const salesTaxRecords: SalesTaxRecord[] = salesTaxData?.data || [];
   const withholdingRecords: WithholdingRecord[] = withholdingData?.data || [];
   const activities = activityData || [];
-  const documents: Document[] = documentsData?.data || [];
+  const documents: Document[] = documentsData || [];
   const tasks: Task[] = tasksData?.data || [];
   const reports: Report[] = (reportsData?.data || []).filter(
     (r) => r.parameters?.client_id === clientId
@@ -372,7 +373,14 @@ export function ClientDetailPage() {
 
   // Document handlers
   const handleUploadDocument = useCallback(async (formData: FormData) => {
-    await uploadDocumentMutation.mutateAsync(formData);
+    const file = formData.get('file') as File;
+    const cid = formData.get('client_id') as string;
+    const docCategory = formData.get('document_type') as string | undefined;
+    await uploadDocumentMutation.mutateAsync({
+      file,
+      clientId: cid,
+      options: docCategory ? { doc_category: docCategory } : undefined,
+    });
     refetchDocs();
     setShowUploadDialog(false);
   }, [uploadDocumentMutation, refetchDocs]);
@@ -380,7 +388,8 @@ export function ClientDetailPage() {
   const handleDownloadDoc = useCallback(async (doc: Document) => {
     try {
       const { documentService } = await import('../../documents/services/documentService');
-      const blob = await documentService.download(doc.id);
+      const arrayBuffer = await documentService.getFileAsArrayBuffer(doc.id);
+      const blob = new Blob([arrayBuffer]);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -398,7 +407,7 @@ export function ClientDetailPage() {
     setDeleteLoading(true);
     try {
       const { documentService } = await import('../../documents/services/documentService');
-      await documentService.delete(docId);
+      await documentService.deleteDocument(docId);
       refetchDocs();
       setConfirmDelete(null);
     } catch {
@@ -1014,7 +1023,8 @@ export function ClientDetailPage() {
                               onClick={async () => {
                                 try {
                                   const { documentService } = await import('../../documents/services/documentService');
-                                  const blob = await documentService.download(record.document!.id);
+                                  const arrayBuffer = await documentService.getFileAsArrayBuffer(record.document!.id);
+                                  const blob = new Blob([arrayBuffer]);
                                   const url = window.URL.createObjectURL(blob);
                                   const a = document.createElement('a');
                                   a.href = url;

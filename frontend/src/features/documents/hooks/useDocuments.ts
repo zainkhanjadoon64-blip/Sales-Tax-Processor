@@ -1,14 +1,13 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { documentService } from '../services/documentService'
 import { useDocumentStore } from '../stores/useDocumentStore'
 import { useFilterStore } from '../stores/useFilterStore'
-import type { Document, DocumentFilters, DocumentCategory, FilingStatus } from '../types/document'
+import type { DocumentFilters } from '../types/document'
 
 // --- Hook to bridge filter store → service query ---
 
 export function useDocuments() {
-  const queryClient = useQueryClient()
   const store = useDocumentStore()
   const filters = useFilterStore()
 
@@ -36,7 +35,6 @@ export function useDocuments() {
 
   // Fetch documents
   const {
-    data,
     isLoading,
     error,
     refetch,
@@ -183,7 +181,6 @@ export function useRenameDocument() {
 
 export function useMoveDocument() {
   const queryClient = useQueryClient()
-  const store = useDocumentStore()
 
   return useMutation({
     mutationFn: ({ id, clientId, folderPath }: { id: string; clientId: string; folderPath: string }) =>

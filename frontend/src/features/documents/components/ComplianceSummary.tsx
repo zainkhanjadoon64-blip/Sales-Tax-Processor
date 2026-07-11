@@ -1,4 +1,3 @@
-import React from 'react'
 import { CheckCircle2, AlertTriangle, Clock, TrendingUp } from 'lucide-react'
 
 interface ComplianceSummaryProps {

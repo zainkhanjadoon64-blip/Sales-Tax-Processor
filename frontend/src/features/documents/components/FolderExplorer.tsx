@@ -1,10 +1,9 @@
-import React, { useState, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import {
   ChevronRight,
   ChevronDown,
   Folder,
   FolderOpen,
-  FileText,
   Search,
   FolderTree,
 } from 'lucide-react'
