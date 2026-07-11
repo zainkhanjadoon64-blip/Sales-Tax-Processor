@@ -114,7 +114,7 @@ async function main() {
     const backend = start(
       'backend',
       venvPython,
-      ['-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8000'],
+      ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8000'],
       backendDir,
     )
     await waitForBackend(backend)

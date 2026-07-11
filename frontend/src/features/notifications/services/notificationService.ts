@@ -13,7 +13,8 @@ export const notificationService = {
     if (params?.notification_type) searchParams.append('notification_type', params.notification_type);
     if (params?.limit) searchParams.append('limit', params.limit.toString());
     if (params?.skip) searchParams.append('skip', params.skip.toString());
-    return apiClient.get<Notification[]>(`/notifications/?${searchParams.toString()}`);
+    const query = searchParams.toString();
+    return apiClient.get<Notification[]>(`/notifications${query ? `?${query}` : ''}`);
   },
 
   async getUnreadCount(): Promise<{ count: number }> {

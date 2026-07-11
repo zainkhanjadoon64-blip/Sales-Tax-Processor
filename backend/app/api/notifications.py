@@ -28,7 +28,7 @@ class NotificationResponse:
         self.created_at = notification.created_at.isoformat() if notification.created_at else None
 
 
-@router.get("/", response_model=List[dict])
+@router.get("", response_model=List[dict])
 async def get_notifications(
     is_read: Optional[bool] = None,
     notification_type: Optional[str] = None,
