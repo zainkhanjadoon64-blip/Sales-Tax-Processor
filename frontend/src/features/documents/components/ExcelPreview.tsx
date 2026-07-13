@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import * as XLSX from 'xlsx'
+import DOMPurify from 'dompurify'
 import { Loader2, AlertCircle, Table, ChevronLeft, ChevronRight } from 'lucide-react'
 import { documentService } from '../services/documentService'
 
@@ -37,8 +38,8 @@ export function ExcelPreview({ documentId }: ExcelPreviewProps) {
         setSheets(wb.SheetNames)
         const firstSheet = wb.SheetNames[0]
         if (firstSheet) {
-          const html = XLSX.utils.sheet_to_html(wb.Sheets[firstSheet], { id: 'excel-preview-table' })
-          setHtmlContent(html)
+          const raw = XLSX.utils.sheet_to_html(wb.Sheets[firstSheet], { id: 'excel-preview-table' })
+          setHtmlContent(DOMPurify.sanitize(raw))
         }
       } catch (err: any) {
         if (!cancelled) {
@@ -58,8 +59,8 @@ export function ExcelPreview({ documentId }: ExcelPreviewProps) {
     const wb = workbookRef.current
     if (!wb) return
     setActiveSheet(index)
-    const html = XLSX.utils.sheet_to_html(wb.Sheets[sheets[index]], { id: 'excel-preview-table' })
-    setHtmlContent(html)
+    const raw = XLSX.utils.sheet_to_html(wb.Sheets[sheets[index]], { id: 'excel-preview-table' })
+    setHtmlContent(DOMPurify.sanitize(raw))
   }, [sheets])
 
   if (loading) {

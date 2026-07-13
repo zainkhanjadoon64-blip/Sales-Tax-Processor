@@ -75,23 +75,14 @@ async def lifespan(app: FastAPI):
             )
             db.add(admin2)
             db.commit()
-            # Write the generated password to a secure file readable only by the owner.
-            # This is best-effort: on serverless/read-only filesystems it is skipped safely.
-            try:
-                creds_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".credentials")
-                os.makedirs(creds_dir, exist_ok=True)
-                creds_file = os.path.join(creds_dir, "admin_credentials.txt")
-                with open(creds_file, "w") as f:
-                    f.write(f"Default admin password: {random_password}\n")
-                    f.write(f"Username: zainkhan\n")
-                import stat
-                try:
-                    os.chmod(creds_file, stat.S_IRUSR | stat.S_IWUSR)
-                except Exception:
-                    pass
-                print(f"Default admin created. Username: zainkhan. Password saved to {creds_file}")
-            except OSError:
-                print("Default admin created. Username: zainkhan. (credentials file skipped: read-only filesystem)")
+            # Print the generated password once at startup — the operator must
+            # capture this from the server logs. Credentials are never written
+            # to disk to avoid accidental exposure through file system access.
+            print("=" * 60)
+            print("DEFAULT ADMIN CREATED — CHANGE THIS PASSWORD IMMEDIATELY")
+            print(f"  Username : zainkhan")
+            print(f"  Password : {random_password}")
+            print("=" * 60)
     finally:
         db.close()
     # The long-running cleanup loop is only useful on a persistent server.
@@ -116,8 +107,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=app_settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "Accept", "X-Requested-With"],
 )
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])

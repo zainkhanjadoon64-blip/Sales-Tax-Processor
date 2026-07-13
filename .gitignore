@@ -1,7 +1,8 @@
 node_modules/
 venv/
 .env
-.env.production
+.env.*
+!.env.example
 .pytest_cache/
 .vite/
 __pycache__/
@@ -11,3 +12,4 @@ storage/
 backups/
 *.db
 *.pyc
+.credentials/

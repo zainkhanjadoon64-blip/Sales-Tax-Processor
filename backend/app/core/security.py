@@ -37,14 +37,11 @@ def decode_access_token(token: str) -> dict:
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
         return payload
     except jwt.ExpiredSignatureError:
-        logger.error("=== JWT DECODE FAILED: ExpiredSignatureError ===")
-        logger.error(f"Token has expired. The exp claim indicates token should no longer be accepted.")
+        logger.warning("JWT validation failed: token expired")
         return {}
-    except jwt.JWTClaimsError as e:
-        logger.error(f"=== JWT DECODE FAILED: JWTClaimsError ===")
-        logger.error(f"Claims error: {e}")
+    except jwt.JWTClaimsError:
+        logger.warning("JWT validation failed: invalid claims")
         return {}
-    except Exception as e:
-        logger.error(f"=== JWT DECODE FAILED: {type(e).__name__} ===")
-        logger.error(f"Error: {e}")
+    except Exception:
+        logger.warning("JWT validation failed")
         return {}
