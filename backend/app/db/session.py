@@ -6,15 +6,31 @@ _is_sqlite = settings.DATABASE_URL.startswith("sqlite")
 _is_postgres = settings.DATABASE_URL.startswith("postgresql")
 
 # All primary/foreign key ID columns are stored as VARCHAR(36), but many API
-# endpoints parse path/form params as `uuid.UUID`. By default psycopg2 (via
-# SQLAlchemy's dialect calling register_uuid() on every new connection) renders
-# those values with a `::uuid` cast, which PostgreSQL rejects when compared
-# against a varchar column ("operator does not exist: character varying = uuid").
+# endpoints parse path/form params as `uuid.UUID`. By default psycopg2's
+# UUID_adapter renders those values with a `::uuid` cast (e.g. '...'::uuid),
+# which PostgreSQL rejects when compared against a varchar column
+# ("operator does not exist: character varying = uuid").
 #
-# The dialect registers its uuid handler per-connection, so a module-level
-# register_adapter gets overridden. We instead attach a `connect` event listener
-# below (after the engine is created) that re-registers our adapter on each new
-# DBAPI connection, making every uuid.UUID bind as a plain quoted string.
+# SQLAlchemy's psycopg2 dialect calls psycopg2.extras.register_uuid() on EVERY
+# new pooled connection, and that always (re)registers the same UUID_adapter
+# class. So a per-connection or module-level register_adapter loses the race.
+# The robust, order-independent fix is to patch UUID_adapter.getquoted/__str__
+# so the adapter emits a plain quoted string with no ::uuid cast. This makes
+# every uuid.UUID bind transparently match the VARCHAR id columns.
+if _is_postgres:
+    try:
+        from psycopg2 import extras as _pg_extras
+
+        def _uuid_getquoted(self):
+            return ("'%s'" % self._uuid).encode("utf8")
+
+        def _uuid_str(self):
+            return "'%s'" % self._uuid
+
+        _pg_extras.UUID_adapter.getquoted = _uuid_getquoted
+        _pg_extras.UUID_adapter.__str__ = _uuid_str
+    except Exception:
+        pass
 
 engine = create_engine(
     settings.DATABASE_URL,
@@ -24,21 +40,6 @@ engine = create_engine(
     pool_recycle=300,
     echo=False,
 )
-
-if _is_postgres:
-    import uuid as _uuid
-    from sqlalchemy import event
-    from psycopg2.extensions import register_adapter, AsIs
-
-    def _adapt_uuid(value):
-        # Render uuid.UUID as a plain quoted string (no ::uuid cast) so it
-        # matches the VARCHAR id columns.
-        return AsIs("'%s'" % value)
-
-    @event.listens_for(engine, "connect")
-    def _register_uuid_adapter(dbapi_connection, connection_record):
-        register_adapter(_uuid.UUID, _adapt_uuid)
-
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
