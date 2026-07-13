@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { DEV_AUTH_DISABLED } from './config/auth'
 import { MainLayout } from './layouts/MainLayout'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import { LandingPage } from './features/landing/LandingPage'
@@ -23,6 +24,12 @@ import { ReportsPage } from './features/reports/pages/ReportsPage'
 import { SettingsPage } from './features/settings/pages/SettingsPage'
 import { BackupPage } from './features/backup/pages/BackupPage'
 import { Agentation } from 'agentation'
+
+// In dev mode, ensure a token always exists so ProtectedRoute and API interceptor never redirect away
+if (DEV_AUTH_DISABLED && !localStorage.getItem('token')) {
+  localStorage.setItem('token', 'dev-token')
+  localStorage.setItem('user', JSON.stringify({ id: 'dev-user', name: 'Dev User', username: 'dev', role: 'admin' }))
+}
 
 function App() {
   return (

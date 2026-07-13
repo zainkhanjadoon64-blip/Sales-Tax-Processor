@@ -55,6 +55,8 @@ export function Login() {
 
     // DEV MODE: skip all auth checks and go straight to dashboard
     if (DEV_AUTH_DISABLED) {
+      localStorage.setItem('token', 'dev-token')
+      localStorage.setItem('user', JSON.stringify({ id: 'dev-user', name: 'Dev User', username: email || 'dev', role: 'admin' }))
       navigate('/dashboard', { replace: true })
       return
     }
