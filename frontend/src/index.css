@@ -3,9 +3,14 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   :root {
-    --background: 248 250 252;
-    --foreground: 15 23 42;
+    --primary: #2563eb;
+    --border: #e2e8f0;
+    --muted-foreground: #64748b;
   }
 
   * {
@@ -78,7 +83,7 @@
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--muted)) transparent;
+    scrollbar-color: #f1f5f9 transparent;
   }
 
   .scrollbar-thin::-webkit-scrollbar {
@@ -91,7 +96,7 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: hsl(var(--muted));
+    background-color: #f1f5f9;
     border-radius: 3px;
   }
 
@@ -143,5 +148,57 @@
 
   .animate-slide-in-right {
     animation: slide-in-right 0.3s ease-out;
+  }
+
+  @keyframes tf-hero-enter {
+    from { transform: translateY(32px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+  .tf-hero-enter {
+    animation: tf-hero-enter 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes tf-float {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-10px); }
+  }
+  .tf-float {
+    animation: tf-float 4s ease-in-out infinite;
+  }
+
+  @keyframes tf-reveal-up {
+    from { transform: translateY(40px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+  .tf-reveal {
+    opacity: 0;
+    transform: translateY(40px);
+    transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .tf-reveal.tf-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  @keyframes tf-chart-draw {
+    to { stroke-dashoffset: 0; }
+  }
+  @keyframes tf-pulse {
+    0%, 100% { r: 5; opacity: 1; }
+    50%      { r: 8; opacity: 0.5; }
+  }
+  .tf-chart-area { opacity: 0; animation: tf-fade-in 0.6s 0.4s both; }
+  .tf-chart-line {
+    stroke-dasharray: 800;
+    stroke-dashoffset: 800;
+    animation: tf-chart-draw 1.2s 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .tf-pulse-dot {
+    animation: tf-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes tf-fade-in {
+    to { opacity: 1; }
   }
 }

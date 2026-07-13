@@ -398,9 +398,9 @@ export function ClientsPage() {
 
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-6">
       {/* Page hero */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-primary-900 text-white p-6 sm:p-8">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-primary-900 text-white p-6 sm:p-8 mt-6">
         <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-primary-400/40 via-transparent to-transparent" />
         <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
           <div>

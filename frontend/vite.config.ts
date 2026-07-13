@@ -1,12 +1,13 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import { obfuscatorPlugin } from './plugins/obfuscator'
 
 // Detect if building for Electron
 const isElectronBuild = process.env.BUILD_TARGET === 'electron';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), obfuscatorPlugin()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -36,7 +37,7 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: false,
     // Use relative paths for Electron
     base: isElectronBuild ? './' : '/',
     // Ensure proper chunk naming for Electron
@@ -45,7 +46,7 @@ export default defineConfig({
         main: path.resolve(__dirname, 'index.html'),
       },
     } : undefined,
-  } as import('vite').BuildEnvironmentOptions,
+  },
   // Define globals for Electron
   define: {
     'process.env.BUILD_TARGET': JSON.stringify(process.env.BUILD_TARGET || 'web'),

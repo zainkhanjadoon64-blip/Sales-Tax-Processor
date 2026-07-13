@@ -1,0 +1,172 @@
+[   12404ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:21550
+[   12599ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=b0cc54d7:4426
+[   12600ms] [WARNING] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. @ http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=b0cc54d7:4426
+[ 1080937ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/src/pages/NotFound/components/AmbientBackground.tsx?t=1783789361528:0
+[ 1080940ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/src/pages/NotFound/components/CtaButton.tsx?t=1783789361529:0
+[ 1080941ms] [ERROR] [hmr] Failed to reload /src/pages/NotFound/components/AmbientBackground.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:3000/@vite/client:175
+[ 1080941ms] [ERROR] [hmr] Failed to reload /src/pages/NotFound/components/CtaButton.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:3000/@vite/client:175
+[ 1081049ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/src/index.css?t=1783789361540:0
+[ 1081090ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/src/pages/NotFound/NotFoundPage.tsx?t=1783789361539:0
+[ 1113324ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/src/index.css?t=1783789393720:0
+[ 1113425ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/src/pages/NotFound/NotFoundPage.tsx?t=1783789393720:0
+[ 1130200ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/src/pages/NotFound/NotFoundPage.tsx?t=1783789410621:0
+[ 1163297ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:21550
+[ 1163391ms] ReferenceError: astronautPortalImg is not defined
+    at AstronautPortal (http://localhost:3000/src/pages/NotFound/NotFoundPage.tsx?t=1783789443447:132:22)
+    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:11548:26)
+    at mountIndeterminateComponent (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:14926:21)
+    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:15914:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:3674:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:3699:24)
+    at invokeGuardedCallback (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:3733:39)
+    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19765:15)
+    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19198:20)
+    at workLoopSync (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19137:13)
+[ 1163407ms] ReferenceError: astronautPortalImg is not defined
+    at AstronautPortal (http://localhost:3000/src/pages/NotFound/NotFoundPage.tsx?t=1783789443447:132:22)
+    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:11548:26)
+    at mountIndeterminateComponent (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:14926:21)
+    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:15914:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:3674:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:3699:24)
+    at invokeGuardedCallback (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:3733:39)
+    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19765:15)
+    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19198:20)
+    at workLoopSync (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19137:13)
+[ 1163412ms] [ERROR] The above error occurred in the <AstronautPortal> component:
+
+    at AstronautPortal (http://localhost:3000/src/pages/NotFound/NotFoundPage.tsx?t=1783789443447:86:3)
+    at div
+    at MotionDOMComponent (http://localhost:3000/node_modules/.vite/deps/motion_react.js?v=b0cc54d7:9368:40)
+    at main
+    at NotFoundPage (http://localhost:3000/src/pages/NotFound/NotFoundPage.tsx?t=1783789443447:409:32)
+    at RenderedRoute (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=b0cc54d7:4122:5)
+    at Routes (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=b0cc54d7:4592:5)
+    at App
+    at Router (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=b0cc54d7:4535:15)
+    at BrowserRouter (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=b0cc54d7:5273:5)
+    at QueryClientProvider (http://localhost:3000/node_modules/.vite/deps/@tanstack_react-query.js?v=b0cc54d7:3239:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries. @ http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:14031
+[ 1163413ms] ReferenceError: astronautPortalImg is not defined
+    at AstronautPortal (http://localhost:3000/src/pages/NotFound/NotFoundPage.tsx?t=1783789443447:132:22)
+    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:11548:26)
+    at mountIndeterminateComponent (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:14926:21)
+    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:15914:22)
+    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19753:22)
+    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19198:20)
+    at workLoopSync (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19137:13)
+    at renderRootSync (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19116:15)
+    at recoverFromConcurrentError (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:18736:28)
+    at performConcurrentWorkOnRoot (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:18684:30)
+[ 1167858ms] ReferenceError: astronautPortalImg is not defined
+    at AstronautPortal (http://localhost:3000/src/pages/NotFound/NotFoundPage.tsx?t=1783789448528:133:22)
+    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:11548:26)
+    at mountIndeterminateComponent (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:14926:21)
+    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:15914:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:3674:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:3699:24)
+    at invokeGuardedCallback (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:3733:39)
+    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19765:15)
+    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19198:20)
+    at workLoopSync (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19137:13)
+[ 1167866ms] ReferenceError: astronautPortalImg is not defined
+    at AstronautPortal (http://localhost:3000/src/pages/NotFound/NotFoundPage.tsx?t=1783789448528:133:22)
+    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:11548:26)
+    at mountIndeterminateComponent (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:14926:21)
+    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:15914:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:3674:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:3699:24)
+    at invokeGuardedCallback (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:3733:39)
+    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19765:15)
+    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19198:20)
+    at workLoopSync (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19137:13)
+[ 1167874ms] [ERROR] The above error occurred in the <AstronautPortal> component:
+
+    at AstronautPortal (http://localhost:3000/src/pages/NotFound/NotFoundPage.tsx?t=1783789448528:87:3)
+    at div
+    at MotionDOMComponent (http://localhost:3000/node_modules/.vite/deps/motion_react.js?v=b0cc54d7:9368:40)
+    at main
+    at NotFoundPage (http://localhost:3000/src/pages/NotFound/NotFoundPage.tsx?t=1783789448528:410:32)
+    at RenderedRoute (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=b0cc54d7:4122:5)
+    at Routes (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=b0cc54d7:4592:5)
+    at App
+    at Router (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=b0cc54d7:4535:15)
+    at BrowserRouter (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=b0cc54d7:5273:5)
+    at QueryClientProvider (http://localhost:3000/node_modules/.vite/deps/@tanstack_react-query.js?v=b0cc54d7:3239:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries. @ http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:14031
+[ 1167876ms] ReferenceError: astronautPortalImg is not defined
+    at AstronautPortal (http://localhost:3000/src/pages/NotFound/NotFoundPage.tsx?t=1783789448528:133:22)
+    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:11548:26)
+    at mountIndeterminateComponent (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:14926:21)
+    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:15914:22)
+    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19753:22)
+    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19198:20)
+    at workLoopSync (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19137:13)
+    at renderRootSync (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19116:15)
+    at recoverFromConcurrentError (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:18736:28)
+    at performSyncWorkOnRoot (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:18879:28)
+[ 1172519ms] ReferenceError: astronautPortalImg is not defined
+    at AstronautPortal (http://localhost:3000/src/pages/NotFound/NotFoundPage.tsx?t=1783789453293:132:22)
+    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:11548:26)
+    at mountIndeterminateComponent (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:14926:21)
+    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:15914:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:3674:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:3699:24)
+    at invokeGuardedCallback (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:3733:39)
+    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19765:15)
+    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19198:20)
+    at workLoopSync (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19137:13)
+[ 1172522ms] ReferenceError: astronautPortalImg is not defined
+    at AstronautPortal (http://localhost:3000/src/pages/NotFound/NotFoundPage.tsx?t=1783789453293:132:22)
+    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:11548:26)
+    at mountIndeterminateComponent (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:14926:21)
+    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:15914:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:3674:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:3699:24)
+    at invokeGuardedCallback (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:3733:39)
+    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19765:15)
+    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19198:20)
+    at workLoopSync (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19137:13)
+[ 1172524ms] [ERROR] The above error occurred in the <AstronautPortal> component:
+
+    at AstronautPortal (http://localhost:3000/src/pages/NotFound/NotFoundPage.tsx?t=1783789453293:86:3)
+    at div
+    at MotionDOMComponent (http://localhost:3000/node_modules/.vite/deps/motion_react.js?v=b0cc54d7:9368:40)
+    at main
+    at NotFoundPage (http://localhost:3000/src/pages/NotFound/NotFoundPage.tsx?t=1783789453293:409:32)
+    at RenderedRoute (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=b0cc54d7:4122:5)
+    at Routes (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=b0cc54d7:4592:5)
+    at App
+    at Router (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=b0cc54d7:4535:15)
+    at BrowserRouter (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=b0cc54d7:5273:5)
+    at QueryClientProvider (http://localhost:3000/node_modules/.vite/deps/@tanstack_react-query.js?v=b0cc54d7:3239:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries. @ http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:14031
+[ 1172524ms] ReferenceError: astronautPortalImg is not defined
+    at AstronautPortal (http://localhost:3000/src/pages/NotFound/NotFoundPage.tsx?t=1783789453293:132:22)
+    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:11548:26)
+    at mountIndeterminateComponent (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:14926:21)
+    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:15914:22)
+    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19753:22)
+    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19198:20)
+    at workLoopSync (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19137:13)
+    at renderRootSync (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:19116:15)
+    at recoverFromConcurrentError (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:18736:28)
+    at performSyncWorkOnRoot (http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:18879:28)
+[ 1178251ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=b0cc54d7:4426
+[ 1178251ms] [WARNING] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. @ http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=b0cc54d7:4426
+[ 3986676ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/src/features/statement165/components/EntriesTable.tsx?t=1783792267266:0
+[ 3986676ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/src/features/statement165/components/EntryForm.tsx?t=1783792267267:0
+[ 3986677ms] [ERROR] [hmr] Failed to reload /src/features/statement165/components/EntriesTable.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:3000/@vite/client:175
+[ 3986677ms] [ERROR] [hmr] Failed to reload /src/features/statement165/components/EntryForm.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:3000/@vite/client:175
+[ 3986677ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/src/features/statement165/components/SessionHistory.tsx?t=1783792267268:0
+[ 3986677ms] [ERROR] [hmr] Failed to reload /src/features/statement165/components/SessionHistory.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:3000/@vite/client:175
+[ 3986863ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/src/features/statement165/components/StatementDashboard.tsx?t=1783792267268:0
+[ 4447428ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3000/node_modules/.vite/deps/chunk-UX6GXCE2.js?v=b0cc54d7:21550
+[ 4447740ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=b0cc54d7:4426
+[ 4447740ms] [WARNING] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. @ http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=b0cc54d7:4426

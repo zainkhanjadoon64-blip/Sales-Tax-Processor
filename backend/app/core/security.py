@@ -34,18 +34,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 def decode_access_token(token: str) -> dict:
     try:
-        logger.info(f"=== JWT DECODE START ===")
-        logger.info(f"Token (first 30 chars): {token[:30]}...")
-        logger.info(f"Token length: {len(token)}")
-        logger.info(f"Algorithm: {settings.JWT_ALGORITHM}")
-        logger.info(f"Secret (first 10 chars): {settings.JWT_SECRET[:10]}...")
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
-        logger.info(f"=== JWT DECODE SUCCESS ===")
-        logger.info(f"Payload keys: {list(payload.keys())}")
-        logger.info(f"sub (username): {payload.get('sub')}")
-        logger.info(f"user_id: {payload.get('user_id')}")
-        logger.info(f"exp (epoch): {payload.get('exp')}")
-        logger.info(f"iat (epoch): {payload.get('iat')}")
         return payload
     except jwt.ExpiredSignatureError:
         logger.error("=== JWT DECODE FAILED: ExpiredSignatureError ===")

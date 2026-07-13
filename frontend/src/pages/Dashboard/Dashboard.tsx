@@ -1,201 +1,84 @@
-import { useNavigate } from 'react-router-dom';
-import { Users, FileText, DollarSign, CheckSquare, TrendingUp, Loader2, AlertCircle } from 'lucide-react';
-import { useDashboard } from '@/features/dashboard/hooks/useDashboard';
-import type { RecentActivity } from '@/features/dashboard/services/dashboardService';
+import { useState } from 'react'
+import { motion } from 'motion/react'
+import { useDashboard } from '@/features/dashboard/hooks/useDashboard'
+import { Header } from './components/header'
+import { authService } from '@/services/authService'
+import { StatCards } from './components/stat-cards'
+import { ComplianceOverview } from './components/compliance-overview'
+import { PendingTasks } from './components/pending-tasks'
+import { ReturnsStatus } from './components/returns-status'
+import { RecentActivities } from './components/recent-activities'
+import { TopClients } from './components/top-clients'
+import { ComplianceCalendar } from './components/compliance-calendar'
+import { SystemNotice } from './components/system-notice'
+import { CtaBanner } from './components/cta-banner'
 
-function getActivityIcon(type: string) {
-  switch (type) {
-    case 'client': return Users;
-    case 'sales_tax': return FileText;
-    case 'withholding': return DollarSign;
-    case 'task': return CheckSquare;
-    case 'document': return FileText;
-    case 'notification': return TrendingUp;
-    default: return TrendingUp;
-  }
+function LoadingScreen() {
+  return (
+    <div className="flex items-center justify-center py-20">
+      <motion.div
+        className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-200"
+        animate={{ scale: [1, 1.1, 1], opacity: [0.7, 1, 0.7] }}
+        transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+      >
+        <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="4" y="2" width="16" height="20" rx="2" />
+          <path d="M9 22v-4h6v4" />
+          <path d="M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M8 10h.01M16 10h.01M8 14h.01M16 14h.01" />
+        </svg>
+      </motion.div>
+    </div>
+  )
 }
-
-const activityColors: Record<string, string> = {
-  client: 'text-indigo-600 bg-indigo-100',
-  sales_tax: 'text-green-600 bg-green-100',
-  withholding: 'text-blue-600 bg-blue-100',
-  task: 'text-amber-600 bg-amber-100',
-  document: 'text-purple-600 bg-purple-100',
-  notification: 'text-rose-600 bg-rose-100',
-};
 
 export function Dashboard() {
-  const navigate = useNavigate();
-  const { data, isLoading, isError } = useDashboard();
+  const [range, setRange] = useState('this-month')
+  const [client, setClient] = useState('all')
+  const [taxYear, setTaxYear] = useState('2024-25')
 
-  const stats = data?.stats ? [
-    { name: 'Total Clients', value: String(data.stats.total_clients ?? 0), icon: Users, color: 'text-primary-600 bg-primary-100' },
-    { name: 'Sales Tax Returns', value: String(data.stats.total_sales_tax ?? 0), icon: FileText, color: 'text-green-600 bg-green-100' },
-    { name: 'Withholding Challans', value: String(data.stats.total_withholding ?? 0), icon: DollarSign, color: 'text-blue-600 bg-blue-100' },
-    { name: 'Pending Tasks', value: String(data.stats.pending_tasks ?? 0), icon: CheckSquare, color: 'text-amber-600 bg-amber-100' },
-    { name: 'Overdue Returns', value: String(data.stats.overdue_sales_tax ?? 0), icon: AlertCircle, color: 'text-red-600 bg-red-100' },
-    { name: 'Filed This Month', value: String(data.stats.filings_this_month ?? 0), icon: FileText, color: 'text-teal-600 bg-teal-100' },
-    { name: 'Documents', value: String(data.stats.total_documents ?? 0), icon: FileText, color: 'text-purple-600 bg-purple-100' },
-  ] : [];
+  const { data, isLoading } = useDashboard({ range, client, taxYear })
+
+  if (isLoading || !data) return <LoadingScreen />
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-        <p className="text-sm text-slate-500 mt-1">Overview of your tax compliance management</p>
+    <>
+      <Header
+        userName={authService.getUser()?.name || data.user.name}
+        greeting={data.user.greeting}
+        taxYear={taxYear}
+        notifications={data.notifications}
+        onTaxYearChange={setTaxYear}
+      />
+
+      <div className="flex flex-col gap-5">
+        <StatCards stats={data.stats} />
+
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+          <div className="flex min-w-0 flex-col gap-5 xl:col-span-2">
+            <ComplianceOverview
+              data={data.complianceOverview}
+              score={data.complianceScore}
+              range={range}
+              client={client}
+              onRangeChange={setRange}
+              onClientChange={setClient}
+            />
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+              <RecentActivities activities={data.activities} />
+              <TopClients clients={data.topClients} />
+            </div>
+            <CtaBanner />
+          </div>
+
+          <div className="flex min-w-0 flex-col gap-5">
+            <PendingTasks tasks={data.pendingTasks} />
+            <ReturnsStatus status={data.returnsStatus} />
+            <ComplianceCalendar calendar={data.calendar} />
+          </div>
+        </div>
+
+        <SystemNotice notice={data.notice} />
       </div>
-
-      {/* Loading state */}
-      {isLoading && (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
-          <span className="ml-3 text-slate-500">Loading dashboard data...</span>
-        </div>
-      )}
-
-      {/* Error state */}
-      {isError && !isLoading && (
-        <div className="card p-8 text-center">
-          <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
-          <p className="text-lg font-medium text-slate-700">Unable to load dashboard</p>
-          <p className="text-sm text-slate-500 mt-1">Check that the backend server is running and try again.</p>
-        </div>
-      )}
-
-      {/* Stats Grid */}
-      {data && !isLoading && !isError && (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {stats.slice(0, 4).map((stat) => (
-              <div key={stat.name} className="card p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-500">{stat.name}</p>
-                    <p className="text-3xl font-bold text-slate-900 mt-1">{stat.value}</p>
-                  </div>
-                  <div className={`p-3 rounded-lg ${stat.color}`}>
-                    <stat.icon className="h-6 w-6" />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Secondary Stats Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {stats.slice(4).map((stat) => (
-              <div key={stat.name} className="card p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-500">{stat.name}</p>
-                    <p className="text-3xl font-bold text-slate-900 mt-1">{stat.value}</p>
-                  </div>
-                  <div className={`p-3 rounded-lg ${stat.color}`}>
-                    <stat.icon className="h-6 w-6" />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Quick Actions */}
-          <div className="card">
-            <div className="p-6 border-b border-slate-200">
-              <h2 className="text-lg font-semibold text-slate-900">Quick Actions</h2>
-            </div>
-            <div className="p-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <button
-                  onClick={() => navigate('/clients')}
-                  className="btn-secondary flex flex-col items-center p-6 hover:bg-slate-50 transition-colors"
-                >
-                  <Users className="h-8 w-8 text-primary-600 mb-2" />
-                  <span className="font-medium text-slate-700">Add Client</span>
-                </button>
-                <button
-                  onClick={() => navigate('/sales-tax')}
-                  className="btn-secondary flex flex-col items-center p-6 hover:bg-slate-50 transition-colors"
-                >
-                  <FileText className="h-8 w-8 text-green-600 mb-2" />
-                  <span className="font-medium text-slate-700">File Sales Tax</span>
-                </button>
-                <button
-                  onClick={() => navigate('/withholding')}
-                  className="btn-secondary flex flex-col items-center p-6 hover:bg-slate-50 transition-colors"
-                >
-                  <DollarSign className="h-8 w-8 text-blue-600 mb-2" />
-                  <span className="font-medium text-slate-700">Record Withholding</span>
-                </button>
-                <button
-                  onClick={() => navigate('/tasks')}
-                  className="btn-secondary flex flex-col items-center p-6 hover:bg-slate-50 transition-colors"
-                >
-                  <CheckSquare className="h-8 w-8 text-amber-600 mb-2" />
-                  <span className="font-medium text-slate-700">Create Task</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Recent Activity */}
-          <div className="card">
-            <div className="p-6 border-b border-slate-200">
-              <h2 className="text-lg font-semibold text-slate-900">Recent Activity</h2>
-            </div>
-            <div className="p-6">
-              {!data?.recent_activity || data.recent_activity.length === 0 ? (
-                <div className="text-center py-8 text-slate-500">
-                  <TrendingUp className="h-12 w-12 mx-auto mb-4 text-slate-300" />
-                  <p className="text-lg">No recent activity</p>
-                  <p className="text-sm mt-1">Start by adding your first client</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {data.recent_activity.map((activity: RecentActivity) => {
-                    const Icon = getActivityIcon(activity.type);
-                    const color = activityColors[activity.type] || 'text-slate-600 bg-slate-100';
-                    const timeAgo = formatTimeAgo(activity.created_at);
-                    return (
-                      <div
-                        key={activity.id}
-                        className={`flex items-start gap-4 p-3 rounded-lg hover:bg-slate-50 transition-colors ${activity.link ? 'cursor-pointer' : ''}`}
-                        onClick={() => activity.link && navigate(activity.link)}
-                      >
-                        <div className={`p-2 rounded-lg shrink-0 ${color}`}>
-                          <Icon className="h-5 w-5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-900 truncate">{activity.title}</p>
-                          <p className="text-xs text-slate-500 mt-0.5">{activity.description}</p>
-                          {activity.client_name && (
-                            <p className="text-xs text-slate-400 mt-0.5">Client: {activity.client_name}</p>
-                          )}
-                        </div>
-                        <div className="text-xs text-slate-400 shrink-0">{timeAgo}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function formatTimeAgo(isoString: string): string {
-  const now = Date.now();
-  const date = new Date(isoString).getTime();
-  const diffMs = now - date;
-  const diffSeconds = Math.floor(diffMs / 1000);
-  if (diffSeconds < 60) return 'just now';
-  const diffMinutes = Math.floor(diffSeconds / 60);
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-  const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return new Date(isoString).toLocaleDateString();
+    </>
+  )
 }

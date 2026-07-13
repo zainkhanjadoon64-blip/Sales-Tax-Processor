@@ -31,6 +31,11 @@ PATTERN_RULES: dict[DocumentCategory, list[str]] = {
         '153', 'section_153', 'sec.153', 'sec 153',
         'withholding_153', 'wht_153', 'whts',
     ],
+    DocumentCategory.SECTION_165: [
+        '165', 'section_165', 'sec.165', 'sec 165',
+        'whts_165', 'wht_165', 'withholding_165',
+        'non_resident', 'non-resident', 'nonresident',
+    ],
     DocumentCategory.KPRA: [
         'kpra', 'k.p.r.a', 'punjab_revenue', 'punjab revenue',
         'kp_revenue',
@@ -85,6 +90,14 @@ def classify_by_filename(file_name: str) -> ClassificationResult:
             method='pattern',
         )
 
+    # Section 165: standalone "165" in context of withholding or non-resident
+    if re.search(r'\b165\b', name_lower) and ('wht' in name_lower or 'withhold' in name_lower or 'statement' in name_lower or 'non.resident' in name_lower or 'nonresident' in name_lower):
+        return ClassificationResult(
+            category=DocumentCategory.SECTION_165,
+            confidence=0.8,
+            method='pattern',
+        )
+
     # File extension-based fallback
     if name_lower.endswith('.pdf'):
         return ClassificationResult(
@@ -121,6 +134,8 @@ def classify_by_folder_context(folder_path: Optional[str]) -> Optional[Classific
         'sales_tax': DocumentCategory.SALES_TAX_RETURN,
         '236h': DocumentCategory.SECTION_236H,
         '153': DocumentCategory.SECTION_153,
+        '165': DocumentCategory.SECTION_165,
+        '165': DocumentCategory.SECTION_165,
         'kpra': DocumentCategory.KPRA,
         'income_tax': DocumentCategory.INCOME_TAX_RETURN,
         'incometax': DocumentCategory.INCOME_TAX_RETURN,
@@ -203,6 +218,7 @@ def generate_standardized_filename(
         DocumentCategory.SALES_TAX_RETURN: "SALES_TAX",
         DocumentCategory.SECTION_236H: "236H",
         DocumentCategory.SECTION_153: "153",
+        DocumentCategory.SECTION_165: "165",
         DocumentCategory.KPRA: "KPRA",
         DocumentCategory.INCOME_TAX_RETURN: "IT_RETURN",
         DocumentCategory.WORKING_FILE: "WORKING",

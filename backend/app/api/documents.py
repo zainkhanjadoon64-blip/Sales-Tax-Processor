@@ -212,6 +212,31 @@ def log_activity(
     db.add(entry)
 
 
+def validate_folder_path(folder_path: str) -> Path:
+    """Validate that a user-supplied folder_path does not escape the storage directory.
+
+    Resolves the folder_path against the storage base path and verifies
+    the resulting path is within the allowed storage directory.
+
+    Raises HTTPException(400) if the path escapes or is invalid.
+    """
+    storage_base = Path(settings.STORAGE_PATH).resolve()
+    # Normalize path separators and strip leading/trailing slashes
+    normalized = folder_path.replace("\\", "/").strip("/")
+    new_folder = (storage_base / normalized).resolve()
+
+    # Verify the resolved path is within the storage directory
+    try:
+        new_folder.relative_to(storage_base)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid folder path: path escapes the storage directory"
+        )
+
+    return new_folder
+
+
 # ============================================================================
 # Upload Endpoints
 # ============================================================================
@@ -867,8 +892,7 @@ def move_document(
         raise HTTPException(status_code=404, detail="Target client not found")
 
     try:
-        from pathlib import Path
-        new_folder = Path(settings.STORAGE_PATH) / data.folder_path.replace("\\", "/")
+        new_folder = validate_folder_path(data.folder_path)
         new_path, new_filename = move_document_file(document.file_path, new_folder)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Source file not found on disk")
@@ -905,8 +929,7 @@ def copy_document(
         raise HTTPException(status_code=404, detail="Target client not found")
 
     try:
-        from pathlib import Path
-        new_folder = Path(settings.STORAGE_PATH) / data.folder_path.replace("\\", "/")
+        new_folder = validate_folder_path(data.folder_path)
         new_path, new_filename = copy_document_file(document.file_path, new_folder)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Source file not found on disk")
@@ -1003,8 +1026,7 @@ def batch_move_documents(
         document = db.query(Document).filter(Document.id == doc_id).first()
         if document:
             try:
-                from pathlib import Path
-                new_folder = Path(settings.STORAGE_PATH) / data.folder_path.replace("\\", "/")
+                new_folder = validate_folder_path(data.folder_path)
                 new_path, new_filename = move_document_file(document.file_path, new_folder)
                 document.client_id = data.client_id
                 document.file_path = new_path
@@ -1029,8 +1051,7 @@ def batch_copy_documents(
         document = db.query(Document).filter(Document.id == doc_id).first()
         if document:
             try:
-                from pathlib import Path
-                new_folder = Path(settings.STORAGE_PATH) / data.folder_path.replace("\\", "/")
+                new_folder = validate_folder_path(data.folder_path)
                 new_path, new_filename = copy_document_file(document.file_path, new_folder)
                 new_doc = Document(
                     client_id=data.client_id,

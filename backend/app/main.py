@@ -1,11 +1,39 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from app.api import auth, clients, sales_tax, withholding, documents, tasks, reports, search, settings, notifications, dashboard, backup, folders, compliance, sync
+from app.api import auth, clients, sales_tax, withholding, documents, tasks, reports, search, settings, notifications, dashboard, backup, folders, compliance, sync, statement_165, admin_approval
 from app.core.config import settings as app_settings
 from app.db.session import engine, Base
 from app.db.migrate import run_migrations
-from app.models import user, client, sales_tax as sales_tax_model, withholding as withholding_model, document, task, report, backup as backup_model, setting, notification as notification_model
+from app.models import user, client, sales_tax as sales_tax_model, withholding as withholding_model, document, task, report, backup as backup_model, setting, notification as notification_model, statement_165 as statement_165_model
+
+
+def cleanup_inactive_users():
+    import time
+    from app.db.session import SessionLocal
+    from app.models.statement_165 import Statement165Entry, Statement165Session
+    from app.models.user import User
+    from datetime import datetime, timedelta
+
+    while True:
+        time.sleep(300)
+        try:
+            db = SessionLocal()
+            try:
+                cutoff = datetime.utcnow() - timedelta(hours=1)
+                inactive = db.query(User).filter(
+                    User.last_activity_at.isnot(None),
+                    User.last_activity_at < cutoff,
+                ).all()
+                for u in inactive:
+                    db.query(Statement165Entry).filter(Statement165Entry.user_id == u.id).delete()
+                    db.query(Statement165Session).filter(Statement165Session.user_id == u.id).delete()
+                    print(f"[cleanup] Removed 165 data for inactive user {u.username} ({u.id})")
+                db.commit()
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"[cleanup] Error: {e}")
 
 
 @asynccontextmanager
@@ -16,22 +44,56 @@ async def lifespan(app: FastAPI):
     from app.db.session import SessionLocal
     from app.models.user import User
     from app.core.security import get_password_hash
+    import secrets
+    import os
     db = SessionLocal()
     try:
         if db.query(User).count() == 0:
+            random_password = secrets.token_urlsafe(16)
             admin = User(
                 id="00000000-0000-0000-0000-000000000001",
                 full_name="Zain Khan",
                 username="zainkhan",
-                password_hash=get_password_hash("zk@123"),
+                password_hash=get_password_hash(random_password),
                 email="zain@example.com",
                 is_active=True,
+                role="admin",
+                is_approved=True,
             )
             db.add(admin)
+
+            # Seed the Admin portal user with fixed credentials
+            admin2 = User(
+                id="00000000-0000-0000-0000-000000000002",
+                full_name="Administrator",
+                username="admin@admin",
+                password_hash=get_password_hash("admin@admin"),
+                email="admin@taxsuite.com",
+                role="admin",
+                is_approved=True,
+                is_active=True,
+            )
+            db.add(admin2)
             db.commit()
-            print("Created default admin user: zainkhan / zk@123")
+            # Write the generated password to a secure file readable only by the owner
+            creds_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".credentials")
+            os.makedirs(creds_dir, exist_ok=True)
+            creds_file = os.path.join(creds_dir, "admin_credentials.txt")
+            with open(creds_file, "w") as f:
+                f.write(f"Default admin password: {random_password}\n")
+                f.write(f"Username: zainkhan\n")
+            # Restrict file permissions on non-Windows platforms
+            import stat
+            try:
+                os.chmod(creds_file, stat.S_IRUSR | stat.S_IWUSR)
+            except Exception:
+                pass
+            print(f"Default admin created. Username: zainkhan. Password saved to {creds_file}")
     finally:
         db.close()
+    import threading
+    t = threading.Thread(target=cleanup_inactive_users, daemon=True)
+    t.start()
     yield
 
 
@@ -67,6 +129,8 @@ app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["
 app.include_router(dashboard.router, prefix="/api/v1", tags=["dashboard"])
 app.include_router(backup.router, prefix="/api/v1/backups", tags=["backups"])
 app.include_router(sync.router, prefix="/api/v1/sync", tags=["sync"])
+app.include_router(statement_165.router, prefix="/api/v1/withholding", tags=["statement-165"])
+app.include_router(admin_approval.router, prefix="/api/v1", tags=["admin-approval"])
 
 @app.get("/health")
 async def health_check():

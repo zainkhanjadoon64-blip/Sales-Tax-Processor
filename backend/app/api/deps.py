@@ -9,6 +9,7 @@ from app.core.security import decode_access_token
 from app.core.config import settings
 from app.core.dev_auth import DEV_AUTH_DISABLED
 import logging
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -30,59 +31,61 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     
-    # Debug: Log token (masked) and secret used
-    logger.info(f"=== AUTH DEBUG ===")
-    logger.info(f"Token (prefix): {token[:20]}...")
-    logger.info(f"JWT_SECRET (prefix): {settings.JWT_SECRET[:20]}...")
-    logger.info(f"JWT_ALGORITHM: {settings.JWT_ALGORITHM}")
-    
+
+    logger.info("=== AUTH CHECK for request ===")
+    logger.info(f"Token present: {token is not None}")
+    if token:
+        logger.info(f"Token first 20 chars: {token[:20]}...")
+        logger.info(f"Token length: {len(token)}")
+
     payload = decode_access_token(token)
-    logger.info(f"Decoded payload: {payload}")
-    
+
     if not payload:
-        logger.warning("Token decode failed - empty payload returned")
+        logger.error(f"=== AUTH FAILED: Token decode returned empty payload ===")
+        logger.error(f"Token was None: {token is None}")
         raise credentials_exception
-    
+
     username: str = payload.get("sub")
     user_id_raw = payload.get("user_id")
-    logger.info(f"Claims - username: {username}, user_id: {user_id_raw}")
-    
+
+    logger.info(f"Decoded payload - sub: {username}, user_id: {user_id_raw}")
+
     if username is None:
-        logger.warning("No 'sub' claim in payload")
+        logger.error(f"=== AUTH FAILED: No 'sub' in payload ===")
+        logger.error(f"Payload keys: {list(payload.keys())}")
         raise credentials_exception
-    
+
     user = None
     if user_id_raw:
-        # Debug: Try plain string comparison first (column is String(36))
+        logger.info(f"Looking up user by user_id: {user_id_raw}")
         user = db.query(User).filter(User.id == str(user_id_raw)).first()
-        logger.info(f"User lookup by id='{user_id_raw}': {'FOUND' if user else 'NOT FOUND'}")
 
     if user is None and user_id_raw:
-        # Fallback: try UUID object for backward compatibility
         try:
             user = db.query(User).filter(User.id == UUID(str(user_id_raw))).first()
-            logger.info(f"User lookup by UUID('{user_id_raw}'): {'FOUND' if user else 'NOT FOUND'}")
-        except (ValueError, TypeError, AttributeError) as e:
-            logger.warning(f"UUID conversion failed for '{user_id_raw}': {e}")
+        except (ValueError, TypeError, AttributeError):
+            pass
 
     if user is None:
+        logger.info(f"Looking up user by username: {username}")
         user = db.query(User).filter(User.username == username).first()
-        logger.info(f"User lookup by username '{username}': {'FOUND' if user else 'NOT FOUND'}")
 
     if user is None:
-        logger.warning("User not found by any method - raising 401")
+        logger.error(f"=== AUTH FAILED: No user found for username='{username}' ===")
         raise credentials_exception
-    
-    logger.info(f"Authenticated user: {user.id} / {user.username} / active={user.is_active}")
-    
+
     if not user.is_active:
-        logger.warning(f"User {user.username} is inactive - raising 403")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Inactive user"
         )
-    
-    logger.info(f"Authentication SUCCESS for {user.username}")
+
+    try:
+        user.last_activity_at = datetime.utcnow()
+        db.commit()
+    except Exception:
+        db.rollback()
+
     return user
 
 async def get_current_active_user(

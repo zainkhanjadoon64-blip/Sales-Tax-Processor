@@ -7,7 +7,7 @@ from app.models.user import User
 from app.core.security import create_access_token, verify_password, get_password_hash
 from app.api.deps import get_current_user
 from app.core.config import settings
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 router = APIRouter()
 
@@ -29,33 +29,96 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
+class RegisterRequest(BaseModel):
+    name: str
+    email: str
+    password: str
+
+
+class RegisterResponse(BaseModel):
+    success: bool
+    message: str
+    requires_approval: bool = True
+
+
 @router.post("/login", response_model=LoginResponse)
 def login(request: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == request.username).first()
-    
+
     if not user or not verify_password(request.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
         )
-    
+
+    if user.role != "admin" and not user.is_approved:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account pending admin approval. Please wait for an administrator to approve your account.",
+        )
+
+    # Check timed ban — auto-unban if ban period has expired
+    if user.banned_until is not None:
+        now = datetime.utcnow()
+        if now < user.banned_until:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Account is banned until {user.banned_until.isoformat()}",
+            )
+        else:
+            # Ban period has lapsed — auto-unban
+            user.banned_until = None
+            user.is_active = True
+            user.is_approved = True
+
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User is inactive",
         )
-    
+
     access_token_expires = timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user.username, "user_id": str(user.id)},
         expires_delta=access_token_expires,
     )
-    
+
     return LoginResponse(
         success=True,
         token=access_token,
         user={"id": str(user.id), "name": user.full_name, "username": user.username},
         message="Login successful"
+    )
+
+
+@router.post("/register", response_model=RegisterResponse)
+def register(request: RegisterRequest, db: Session = Depends(get_db)):
+    existing_user = db.query(User).filter(User.username == request.email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An account with this email address already exists",
+        )
+
+    hashed_password = get_password_hash(request.password)
+    new_user = User(
+        full_name=request.name,
+        username=request.email,
+        email=request.email,
+        password_hash=hashed_password,
+        role="user",
+        is_approved=False,
+        is_active=True,
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return RegisterResponse(
+        success=True,
+        message="Account created successfully. It requires approval from an administrator before you can log in.",
+        requires_approval=True,
     )
 
 @router.post("/logout")

@@ -9,6 +9,7 @@ from app.db.session import Base
 class WithholdingType(str, enum.Enum):
     TYPE_236H = "236H"
     TYPE_153 = "153"
+    TYPE_165 = "165"
 
 class WithholdingRecord(Base):
     __tablename__ = "withholding_records"

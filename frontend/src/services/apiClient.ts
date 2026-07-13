@@ -2,6 +2,7 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import { DEV_AUTH_DISABLED } from '../config/auth'
 
 let isRedirectingToLogin = false
+let isRedirectingToConnectionError = false
 
 class ApiClient {
   private client: AxiosInstance
@@ -20,9 +21,11 @@ class ApiClient {
       config.headers = config.headers || {}
       if (token) {
         config.headers.Authorization = `Bearer ${token}`
-        console.log(`[API] Request to ${config.url} with token: ${token.substring(0, 10)}...`)
       } else {
-        console.log(`[API] Request to ${config.url} with NO token`)
+        console.warn(`[API] Request to ${config.url} with NO token — localStorage token is missing!`)
+        const allKeys = []
+        for (let i = 0; i < localStorage.length; i++) { allKeys.push(localStorage.key(i)) }
+        console.warn(`[API] localStorage keys: ${allKeys.join(', ') || '(empty)'}`)
       }
       return config
     })
@@ -34,13 +37,18 @@ class ApiClient {
           if (!DEV_AUTH_DISABLED) {
             localStorage.removeItem('token')
             localStorage.removeItem('user')
-            // Don't redirect if already on the login page (prevents redirect loops)
             if (!isRedirectingToLogin && !window.location.pathname.startsWith('/login')) {
               isRedirectingToLogin = true
               window.location.href = '/login'
-              // Reset flag after a delay so subsequent 401s can trigger if needed
               setTimeout(() => { isRedirectingToLogin = false }, 2000)
             }
+          }
+        } else if (!error.response && error.code !== 'ERR_CANCELED') {
+          // Network error — server unreachable, DNS failure, timeout, etc.
+          if (!isRedirectingToConnectionError && !window.location.pathname.startsWith('/connection-error')) {
+            isRedirectingToConnectionError = true
+            window.location.href = '/connection-error'
+            setTimeout(() => { isRedirectingToConnectionError = false }, 5000)
           }
         }
         return Promise.reject(error)

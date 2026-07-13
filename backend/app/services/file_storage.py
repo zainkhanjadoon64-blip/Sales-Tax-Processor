@@ -36,7 +36,7 @@ def get_storage_base_path() -> Path:
 def resolve_withholding_folder(client_name: str, section_or_category: str) -> Path:
     """
     Return the storage folder for a client's withholding documents.
-    section_or_category: "236H", "153", or "Statements"
+    section_or_category: "236H", "153", "165", or "Statements"
     """
     base = get_storage_base_path() / "Clients" / client_name / "Withholding"
     folder = base / section_or_category
@@ -65,7 +65,7 @@ def generate_withholding_filename(
     ntn_part = ntn.replace("-", "") if ntn else "NONTN"
     mon, year = period.split("-") if "-" in period else ("00", "0000")
     
-    if doc_type.upper() in ("236H", "153"):
+    if doc_type.upper() in ("236H", "153", "165"):
         return f"{safe_name}_{ntn_part}_{doc_type.upper()}_{mon}_{year}{ext}"
     else:
         return f"{safe_name}_{ntn_part}_STATEMENT_{mon}_{year}{ext}"
@@ -102,7 +102,7 @@ def ensure_client_folder_structure(client_name: str) -> dict[str, Path]:
     Create the full withholding folder structure for a client.
     Returns a dict mapping section -> folder Path.
     """
-    sections = ["236H", "153", "Statements"]
+    sections = ["236H", "153", "165", "Statements"]
     folders = {}
     for section in sections:
         folders[section] = resolve_withholding_folder(client_name, section)

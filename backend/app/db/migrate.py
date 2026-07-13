@@ -57,6 +57,16 @@ NOTIFICATION_COLUMN_MIGRATIONS = [
     ("task_id", "UUID"),
 ]
 
+USER_COLUMN_MIGRATIONS = [
+    ("role", "VARCHAR(20) DEFAULT 'user' NOT NULL"),
+    ("is_approved", "BOOLEAN DEFAULT 0 NOT NULL"),
+    ("last_activity_at", "TIMESTAMP"),
+]
+
+BANNED_COLUMN_MIGRATIONS = [
+    ("banned_until", "TIMESTAMP"),
+]
+
 
 def _normalize_column_type_for_sqlite(column_type: str) -> str:
     if str(engine.url).startswith("sqlite"):
@@ -198,3 +208,21 @@ def run_migrations() -> None:
         # No specific migrations needed, just ensure table exists
     else:
         logger.info("settings table does not exist yet; skipping")
+
+    # --- User migrations ---
+    if "users" in tables:
+        existing = {col["name"] for col in inspector.get_columns("users")}
+        with engine.begin() as conn:
+            added = _add_columns(conn, "users", USER_COLUMN_MIGRATIONS, existing)
+        if added:
+            logger.info("Applied user migrations: %s", ", ".join(added))
+
+        # Only run banned_until migration if is_approved migration already applied
+        # to avoid duplicate column issues
+        existing2 = {col["name"] for col in inspector.get_columns("users")}
+        with engine.begin() as conn:
+            added = _add_columns(conn, "users", BANNED_COLUMN_MIGRATIONS, existing2)
+        if added:
+            logger.info("Applied banned_until migration: %s", ", ".join(added))
+    else:
+        logger.info("users table does not exist yet; skipping")

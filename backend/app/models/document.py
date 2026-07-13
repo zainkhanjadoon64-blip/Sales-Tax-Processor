@@ -32,6 +32,7 @@ class DocumentCategory(str, enum.Enum):
     SALES_TAX_RETURN = "Sales Tax Return"
     SECTION_236H = "236H"
     SECTION_153 = "153"
+    SECTION_165 = "165"
     KPRA = "KPRA"
     INCOME_TAX_RETURN = "Income Tax Return"
     WORKING_FILE = "Working File"

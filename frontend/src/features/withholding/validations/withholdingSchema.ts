@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const withholdingRecordCreateSchema = z.object({
   client_id: z.string().uuid('Invalid client ID'),
-  section_type: z.enum(['236H', '153'], { required_error: 'Section type is required' }).optional(),
+  section_type: z.enum(['236H', '153', '165'], { required_error: 'Section type is required' }).optional(),
   period: z.string().min(1, 'Period is required').regex(/^\d{4}-\d{2}$/, 'Period must be in YYYY-MM format').optional(),
   challan_number: z.string().max(100).optional().nullable(),
   amount: z.number().min(0, 'Amount must be positive').optional().nullable(),
@@ -26,7 +26,7 @@ export const withholdingRecordCreateSchema = z.object({
 });
 
 export const withholdingRecordUpdateSchema = z.object({
-  section_type: z.enum(['236H', '153']).optional(),
+  section_type: z.enum(['236H', '153', '165']).optional(),
   period: z.string().regex(/^\d{4}-\d{2}$/, 'Period must be in YYYY-MM format').optional(),
   challan_number: z.string().max(100).optional().nullable(),
   amount: z.number().min(0).optional().nullable(),

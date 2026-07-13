@@ -1,3 +1,3 @@
 // Temporary development flag for auth bypass.
-// Set this to false to re-enable authentication enforcement.
-export const DEV_AUTH_DISABLED = true
+// Set this to true to disable authentication enforcement (dev only).
+export const DEV_AUTH_DISABLED = false

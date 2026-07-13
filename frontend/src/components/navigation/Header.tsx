@@ -1,4 +1,4 @@
-import { Search, Bell, Settings, Menu, X } from 'lucide-react'
+import { Search, Bell, Settings, Menu, X, PanelLeft, PanelLeftClose } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useNotifications, useUnreadCount, useMarkAsRead, useMarkAllAsRead } from '../../features/notifications/hooks/useNotifications'
@@ -14,7 +14,12 @@ interface SearchResult {
   sales_tax: Array<{ id: string; client_id: string; year: number; month: number; status: string }>
 }
 
-export function Header() {
+type HeaderProps = {
+  sidebarCollapsed?: boolean
+  onToggleSidebar?: () => void
+}
+
+export function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProps) {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult | null>(null)
@@ -114,14 +119,72 @@ export function Header() {
   }
 
   return (
-    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
-      <div className="flex items-center gap-4 flex-1 max-w-xl" ref={searchRef}>
-        <button className="lg:hidden p-2 rounded-lg hover:bg-gray-100">
+    <header className="h-16 bg-white flex items-center justify-between px-6">
+      <div className="flex items-center flex-1 max-w-xl" ref={searchRef}>
+        {/* Sidebar toggle button */}
+        <button
+          onClick={onToggleSidebar}
+          className="p-2 rounded-lg hover:bg-gray-100 transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer shrink-0"
+          aria-label={sidebarCollapsed ? 'Open sidebar' : 'Close sidebar'}
+          style={{
+            marginRight: sidebarCollapsed ? 50 : 16,
+          }}
+        >
+          <div className="relative w-5 h-5">
+            <span
+              className="absolute inset-0 flex items-center justify-center transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)]"
+              style={{
+                opacity: sidebarCollapsed ? 0 : 1,
+                transform: sidebarCollapsed ? 'rotate(90deg) scale(0.5)' : 'rotate(0deg) scale(1)',
+              }}
+            >
+              <PanelLeftClose className="w-5 h-5 text-gray-600" />
+            </span>
+            <span
+              className="absolute inset-0 flex items-center justify-center transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)]"
+              style={{
+                opacity: sidebarCollapsed ? 1 : 0,
+                transform: sidebarCollapsed ? 'rotate(0deg) scale(1)' : 'rotate(-90deg) scale(0.5)',
+              }}
+            >
+              <PanelLeft className="w-5 h-5 text-gray-600" />
+            </span>
+          </div>
+        </button>
+        <button className="lg:hidden p-2 rounded-lg hover:bg-gray-100 mr-4">
           <Menu className="h-5 w-5" />
         </button>
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <button
+            type="button"
+            onClick={() => {
+              // Dismiss keyboard on mobile
+              if (document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur()
+              }
+              // Trigger search if there's a query
+              if (searchQuery.length >= 2) {
+                setShowSearchResults(true)
+              } else {
+                // Focus the input instead
+                const input = document.getElementById('global-search-input')
+                input?.focus()
+              }
+            }}
+            className="absolute left-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg z-10
+                       text-gray-400 hover:text-primary-600 hover:bg-primary-50
+                       transition-all duration-300 group/search-btn
+                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+            aria-label="Search"
+          >
+            <Search className="h-4 w-4 relative z-10 transition-transform duration-300 group-hover/search-btn:scale-110" />
+            {/* Shining overlay */}
+            <span className="absolute inset-0 rounded-lg overflow-hidden opacity-0 group-hover/search-btn:opacity-100 transition-opacity duration-500">
+              <span className="absolute -inset-[100%] -translate-x-full group-hover/search-btn:translate-x-full transition-transform duration-700 ease-in-out bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-[-20deg]" />
+            </span>
+          </button>
           <input
+            id="global-search-input"
             type="text"
             placeholder="Search clients, documents, challans..."
             value={searchQuery}
@@ -130,7 +193,7 @@ export function Header() {
               if (e.target.value.length < 2) setShowSearchResults(false)
             }}
             onFocus={() => { if (searchResults) setShowSearchResults(true) }}
-            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="w-full pl-12 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           />
           {searchQuery && (
             <button

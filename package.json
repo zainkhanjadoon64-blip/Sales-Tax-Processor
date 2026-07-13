@@ -11,5 +11,8 @@
     "dev:backend": "node start-dev.js --backend-only",
     "build": "npm run build --workspace=frontend",
     "preview": "npm run preview --workspace=frontend -- --host 0.0.0.0 --port 3000"
+  },
+  "devDependencies": {
+    "javascript-obfuscator": "^5.4.7"
   }
 }

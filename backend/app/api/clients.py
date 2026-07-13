@@ -313,14 +313,19 @@ def get_client_stats(
         new_this_month=new_this_month
     )
 
+def _parse_bool(val: Optional[str]) -> Optional[bool]:
+    if val is None:
+        return None
+    return val.lower() in ("true", "1", "yes")
+
 @router.get("/", response_model=ClientListResponse)
 def get_clients(
     page: int = Query(1, ge=1),
-    limit: int = Query(25, ge=1, le=100),
+    limit: int = Query(25, ge=1, le=1000),
     search: Optional[str] = Query(None),
-    sales_tax_registered: Optional[bool] = Query(None),
-    withholding_registered: Optional[bool] = Query(None),
-    is_active: Optional[bool] = Query(None),
+    sales_tax_registered: Optional[str] = Query(None),
+    withholding_registered: Optional[str] = Query(None),
+    is_active: Optional[str] = Query(None),
     date_from: Optional[str] = Query(None),
     date_to: Optional[str] = Query(None),
     sort_by: Optional[str] = Query("created_at"),
@@ -329,7 +334,13 @@ def get_clients(
     current_user: User = Depends(get_current_active_user)
 ):
     query = db.query(Client)
-    query = apply_client_filters(query, search, sales_tax_registered, withholding_registered, is_active, date_from, date_to)
+    query = apply_client_filters(
+        query, search,
+        _parse_bool(sales_tax_registered),
+        _parse_bool(withholding_registered),
+        _parse_bool(is_active),
+        date_from, date_to
+    )
     query = apply_client_sort(query, sort_by, sort_order)
 
     total = query.count()
@@ -347,16 +358,22 @@ def get_clients(
 @router.get("/export/csv")
 def export_clients_csv(
     search: Optional[str] = Query(None),
-    sales_tax_registered: Optional[bool] = Query(None),
-    withholding_registered: Optional[bool] = Query(None),
-    is_active: Optional[bool] = Query(None),
+    sales_tax_registered: Optional[str] = Query(None),
+    withholding_registered: Optional[str] = Query(None),
+    is_active: Optional[str] = Query(None),
     date_from: Optional[str] = Query(None),
     date_to: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     query = db.query(Client)
-    query = apply_client_filters(query, search, sales_tax_registered, withholding_registered, is_active, date_from, date_to)
+    query = apply_client_filters(
+        query, search,
+        _parse_bool(sales_tax_registered),
+        _parse_bool(withholding_registered),
+        _parse_bool(is_active),
+        date_from, date_to
+    )
     query = apply_client_sort(query, "client_name", "asc")
     clients = query.all()
 

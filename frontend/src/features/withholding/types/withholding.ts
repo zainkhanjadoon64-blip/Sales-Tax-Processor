@@ -1,4 +1,4 @@
-export type WithholdingType = '236H' | '153';
+export type WithholdingType = '236H' | '153' | '165';
 
 export interface WithholdingDocumentInfo {
   id: string;
@@ -151,6 +151,7 @@ export interface PendingClient {
 export const WITHHOLDING_TYPES: { value: WithholdingType; label: string }[] = [
   { value: '236H', label: '236H' },
   { value: '153', label: '153' },
+  { value: '165', label: '165' },
 ];
 
 export const MONTHS = [

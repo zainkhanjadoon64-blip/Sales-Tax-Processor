@@ -10,6 +10,7 @@ export type DocumentCategory =
   | 'Sales Tax Return'
   | '236H'
   | '153'
+  | '165'
   | 'KPRA'
   | 'Income Tax Return'
   | 'Working File'
@@ -323,6 +324,7 @@ export const DOCUMENT_CATEGORY_OPTIONS: { value: DocumentCategory; label: string
   { value: 'Sales Tax Return', label: 'Sales Tax Return', color: 'bg-blue-100 text-blue-700' },
   { value: '236H', label: '236H', color: 'bg-purple-100 text-purple-700' },
   { value: '153', label: '153', color: 'bg-indigo-100 text-indigo-700' },
+  { value: '165', label: '165', color: 'bg-rose-100 text-rose-700' },
   { value: 'KPRA', label: 'KPRA', color: 'bg-cyan-100 text-cyan-700' },
   { value: 'Income Tax Return', label: 'Income Tax Return', color: 'bg-emerald-100 text-emerald-700' },
   { value: 'Working File', label: 'Working File', color: 'bg-slate-100 text-slate-700' },

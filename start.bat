@@ -16,30 +16,9 @@ echo Root directory: %ROOT_DIR%
 echo.
 
 REM ============================================
-REM Step 1: Check Python virtual environment
+REM Step 1: Install/check Python dependencies (using global Python)
 REM ============================================
-set "VENV_DIR=%BACKEND_DIR%\venv"
-if not exist "%VENV_DIR%\Scripts\python.exe" (
-    set "VENV_DIR=%ROOT_DIR%\venv"
-    if not exist "%VENV_DIR%\Scripts\python.exe" (
-        echo [ERROR] Python virtual environment not found.
-        echo.
-        echo Run the following commands to set it up:
-        echo   cd /d "%BACKEND_DIR%"
-        echo   python -m venv venv
-        echo   venv\Scripts\python -m pip install -r requirements.txt
-        echo.
-        pause
-        exit /b 1
-    )
-)
-set "PYTHON_CMD=%VENV_DIR%\Scripts\python.exe"
-echo [OK] Python virtual environment found at %VENV_DIR%.
-echo.
-
-REM ============================================
-REM Step 2: Install/check Python dependencies
-REM ============================================
+set "PYTHON_CMD=python"
 echo Installing/checking backend Python dependencies...
 cd /d "%BACKEND_DIR%"
 "%PYTHON_CMD%" -m pip install -r requirements.txt > nul 2>&1
@@ -56,7 +35,7 @@ echo [OK] Backend dependencies installed.
 echo.
 
 REM ============================================
-REM Step 3: Check Node.js dependencies
+REM Step 2: Check Node.js dependencies
 REM ============================================
 if not exist "%FRONTEND_DIR%\node_modules" (
     echo Installing frontend Node.js dependencies...
@@ -74,7 +53,7 @@ if not exist "%FRONTEND_DIR%\node_modules" (
 echo.
 
 REM ============================================
-REM Step 4: Apply database migrations (optional - skip if DB is not available)
+REM Step 3: Apply database migrations (optional - skip if DB is not available)
 REM ============================================
 cd /d "%ROOT_DIR%"
 if exist "%ROOT_DIR%\alembic.ini" (
@@ -91,7 +70,7 @@ if exist "%ROOT_DIR%\alembic.ini" (
 echo.
 
 REM ============================================
-REM Step 5: Start the backend server
+REM Step 4: Start the backend server
 REM ============================================
 echo Starting backend server on port 8000...
 cd /d "%BACKEND_DIR%"
@@ -108,7 +87,7 @@ timeout /t 5 /nobreak > nul
 echo.
 
 REM ============================================
-REM Step 6: Start the frontend dev server
+REM Step 5: Start the frontend dev server
 REM ============================================
 echo Starting frontend dev server on port 5173...
 cd /d "%FRONTEND_DIR%"
@@ -122,7 +101,7 @@ echo [OK] Frontend dev server starting...
 echo.
 
 REM ============================================
-REM Step 7: Open the application in browser
+REM Step 6: Open the application in browser
 REM ============================================
 echo Opening application in browser...
 timeout /t 3 /nobreak > nul

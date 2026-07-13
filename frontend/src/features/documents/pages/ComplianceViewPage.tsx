@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Shield, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Section165Icon } from '../../statement165/components/Section165Icon'
 import { useComplianceStatus, useMissingDocuments } from '../hooks/useDocuments'
 import { ComplianceSummary } from '../components/ComplianceSummary'
 import { MONTHS } from '../types/document'
@@ -9,6 +10,7 @@ const COMPLIANCE_CATEGORIES: DocumentCategory[] = [
   'Sales Tax Return',
   '236H',
   '153',
+  '165',
   'KPRA',
   'Income Tax Return',
   'Working File',
@@ -156,7 +158,16 @@ export function ComplianceViewPage() {
                     return (
                       <tr key={category} className="hover:bg-slate-50">
                         <td className="px-4 py-3 font-medium text-slate-800 text-xs">
-                          {category}
+                          {category === '165' ? (
+                            <span className="inline-flex items-center gap-2">
+                              <Section165Icon size={20} />
+                              <span className="bg-gradient-to-r from-blue-700 to-indigo-600 bg-clip-text text-transparent font-extrabold">
+                                165
+                              </span>
+                            </span>
+                          ) : (
+                            category
+                          )}
                         </td>
                         {MONTHS.map((m) => {
                           const monthData = complianceData.data.compliance.find(
