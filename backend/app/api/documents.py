@@ -5,7 +5,7 @@ import calendar
 from pathlib import Path
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from pydantic import BaseModel
@@ -23,6 +23,7 @@ from app.api.deps import get_current_active_user
 from app.core.config import settings
 from app.services.document_classifier import classify_document, generate_standardized_filename
 from app.services.folder_service import get_folder_for_category, move_document_file, copy_document_file
+from app.services import blob_storage
 
 router = APIRouter()
 
@@ -296,22 +297,24 @@ async def upload_document(
         tax_year=final_year,
     )
 
-    file_full_path = os.path.join(str(folder_path), file_name)
-
-    # Check for existing file
-    if os.path.exists(file_full_path):
-        # Append version number
-        stem, ext = os.path.splitext(file_name)
-        counter = 1
-        while os.path.exists(os.path.join(str(folder_path), f"{stem}_v{counter}{ext}")):
-            counter += 1
-        file_name = f"{stem}_v{counter}{ext}"
+    # Persist the file. When Blob storage is configured (e.g. on Vercel) the file
+    # is uploaded to Vercel Blob and file_path holds the blob URL; otherwise it is
+    # written to the local filesystem with version-suffix collision handling.
+    if blob_storage.is_enabled():
+        blob_key = f"{folder_path}/{file_name}"
+        file_full_path = blob_storage.upload_bytes(blob_key, content, content_type=file.content_type)
+    else:
         file_full_path = os.path.join(str(folder_path), file_name)
-
-    # Save file
-    os.makedirs(folder_path, exist_ok=True)
-    with open(file_full_path, "wb") as f:
-        f.write(content)
+        if os.path.exists(file_full_path):
+            stem, ext = os.path.splitext(file_name)
+            counter = 1
+            while os.path.exists(os.path.join(str(folder_path), f"{stem}_v{counter}{ext}")):
+                counter += 1
+            file_name = f"{stem}_v{counter}{ext}"
+            file_full_path = os.path.join(str(folder_path), file_name)
+        os.makedirs(folder_path, exist_ok=True)
+        with open(file_full_path, "wb") as f:
+            f.write(content)
 
     # Determine filing status
     filing_status = FilingStatus.UPLOADED
@@ -413,21 +416,24 @@ async def upload_batch(
                 tax_year=final_year,
             )
 
-            file_full_path = os.path.join(str(folder_path), file_name)
+            if blob_storage.is_enabled():
+                blob_key = f"{folder_path}/{file_name}"
+                file_full_path = blob_storage.upload_bytes(blob_key, content, content_type=upload_file.content_type)
+            else:
+                file_full_path = os.path.join(str(folder_path), file_name)
+                # Handle existing file
+                if os.path.exists(file_full_path):
+                    if not overwrite:
+                        stem, ext = os.path.splitext(file_name)
+                        counter = 1
+                        while os.path.exists(os.path.join(str(folder_path), f"{stem}_v{counter}{ext}")):
+                            counter += 1
+                        file_name = f"{stem}_v{counter}{ext}"
+                        file_full_path = os.path.join(str(folder_path), file_name)
 
-            # Handle existing file
-            if os.path.exists(file_full_path):
-                if not overwrite:
-                    stem, ext = os.path.splitext(file_name)
-                    counter = 1
-                    while os.path.exists(os.path.join(str(folder_path), f"{stem}_v{counter}{ext}")):
-                        counter += 1
-                    file_name = f"{stem}_v{counter}{ext}"
-                    file_full_path = os.path.join(str(folder_path), file_name)
-
-            os.makedirs(folder_path, exist_ok=True)
-            with open(file_full_path, "wb") as f:
-                f.write(content)
+                os.makedirs(folder_path, exist_ok=True)
+                with open(file_full_path, "wb") as f:
+                    f.write(content)
 
             document = Document(
                 client_id=client_id,
@@ -789,18 +795,31 @@ def download_document(
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    if not os.path.exists(document.file_path):
-        raise HTTPException(status_code=404, detail="File not found on disk")
-
     # Log download activity
     log_activity(db, document.id, DocumentActivityType.DOWNLOAD, current_user.id)
     db.commit()
+
+    disposition = f"attachment; filename=\"{document.original_file_name}\""
+
+    if blob_storage.is_blob_url(document.file_path):
+        try:
+            content = blob_storage.download_bytes(document.file_path)
+        except Exception:
+            raise HTTPException(status_code=404, detail="File not found in storage")
+        return Response(
+            content=content,
+            media_type='application/octet-stream',
+            headers={"Content-Disposition": disposition},
+        )
+
+    if not os.path.exists(document.file_path):
+        raise HTTPException(status_code=404, detail="File not found on disk")
 
     return FileResponse(
         path=document.file_path,
         filename=document.original_file_name,
         media_type='application/octet-stream',
-        headers={"Content-Disposition": f"attachment; filename=\"{document.original_file_name}\""}
+        headers={"Content-Disposition": disposition}
     )
 
 
@@ -814,15 +833,12 @@ def preview_document(
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    if not os.path.exists(document.file_path):
-        raise HTTPException(status_code=404, detail="File not found on disk")
-
     # Log preview activity
     log_activity(db, document.id, DocumentActivityType.PREVIEW, current_user.id)
     db.commit()
 
     # Set proper media type for inline preview
-    ext = Path(document.file_path).suffix.lower()
+    ext = (document.file_extension or Path(document.file_path).suffix or "").lower()
     media_type_map = {
         DocumentType.PDF: 'application/pdf',
         DocumentType.EXCEL: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -834,11 +850,23 @@ def preview_document(
     else:
         media_type = media_type_map.get(document.file_type, 'application/octet-stream')
 
+    disposition = f"inline; filename=\"{document.original_file_name}\""
+
+    if blob_storage.is_blob_url(document.file_path):
+        try:
+            content = blob_storage.download_bytes(document.file_path)
+        except Exception:
+            raise HTTPException(status_code=404, detail="File not found in storage")
+        return Response(content=content, media_type=media_type, headers={"Content-Disposition": disposition})
+
+    if not os.path.exists(document.file_path):
+        raise HTTPException(status_code=404, detail="File not found on disk")
+
     return FileResponse(
         path=document.file_path,
         filename=document.original_file_name,
         media_type=media_type,
-        headers={"Content-Disposition": f"inline; filename=\"{document.original_file_name}\""}
+        headers={"Content-Disposition": disposition}
     )
 
 
@@ -1193,7 +1221,9 @@ def empty_trash(
     documents = db.query(Document).filter(Document.is_deleted == True).all()
     count = 0
     for doc in documents:
-        if doc.file_path and os.path.exists(doc.file_path):
+        if doc.file_path and blob_storage.is_blob_url(doc.file_path):
+            blob_storage.delete(doc.file_path)
+        elif doc.file_path and os.path.exists(doc.file_path):
             os.remove(doc.file_path)
         db.delete(doc)
         count += 1

@@ -16,8 +16,13 @@ from app.core.config import settings
 
 router = APIRouter()
 
-BACKUP_DIR = Path("backups") / "manual"
-STORAGE_DIR = Path("storage")
+# On serverless platforms (e.g. Vercel) the project filesystem is read-only;
+# only /tmp is writable. Detect that and route backup output there.
+_IS_SERVERLESS = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
+_BACKUP_ROOT = Path("/tmp") if _IS_SERVERLESS else Path(".")
+
+BACKUP_DIR = _BACKUP_ROOT / "backups" / "manual"
+STORAGE_DIR = Path(settings.STORAGE_PATH)
 
 
 class BackupResponse(BaseModel):

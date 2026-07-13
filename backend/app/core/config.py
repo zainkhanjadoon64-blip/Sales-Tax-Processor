@@ -6,6 +6,12 @@ import os
 # Resolve the project root (four levels up from this file: app/core/config.py -> backend/app/core -> backend/app -> backend -> project root)
 _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+# On serverless platforms (Vercel) the working directory is read-only; only /tmp is writable.
+# Files are persisted to Vercel Blob, but temp/scratch paths must live under /tmp.
+_IS_SERVERLESS = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
+_DEFAULT_STORAGE = "/tmp/storage" if _IS_SERVERLESS else "storage"
+_DEFAULT_BACKUP = "/tmp/backups" if _IS_SERVERLESS else "backups"
+
 
 class Settings(BaseSettings):
     APP_NAME: str = "Tax Compliance Management System"
@@ -25,8 +31,8 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000"]
 
-    STORAGE_PATH: str = "storage"
-    BACKUP_PATH: str = "backups"
+    STORAGE_PATH: str = _DEFAULT_STORAGE
+    BACKUP_PATH: str = _DEFAULT_BACKUP
 
     model_config = {
         # Load from .env.development.local first (v0/Vercel sandbox), then .env, then system env
