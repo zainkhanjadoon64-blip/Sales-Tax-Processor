@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
-  Upload,
   Eye, Edit, Download, Shield, Trash2, Database, Cloud, Loader2,
   X, ChevronRight, List,
 } from 'lucide-react'
@@ -256,7 +255,7 @@ export function Section165Page() {
                   showGradients={true}
                   enableArrowNavigation={false}
                   displayScrollbar={true}
-                  renderItem={(entry) => (
+                  renderItem={(entry: WhtEntry) => (
                     <div
                       className={`grid items-center gap-2 rounded-lg border px-3 py-2 ${deletingIds.has(entry.id) ? 'del' : ''} ${entry.error ? 'border-red-200 bg-red-50' : 'border-slate-100 bg-slate-50'}`}
                       style={{ gridTemplateColumns: '1fr auto' }}

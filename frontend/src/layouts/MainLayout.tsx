@@ -4,7 +4,7 @@ import { Sidebar } from '@/components/navigation/Sidebar'
 import { ToastContainer } from '@/components/ui/ToastContainer'
 
 export function MainLayout() {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarCollapsed, _setSidebarCollapsed] = useState(false)
 
   return (
     <div className="flex h-screen bg-gray-50">

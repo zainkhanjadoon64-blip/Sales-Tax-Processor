@@ -8,6 +8,7 @@ const HEADER_ALIASES: Record<keyof Omit<WhtEntry, 'id'>, string[]> = {
   code: ['code', 'section code', 'tax code', 'nature code'],
   taxable: ['taxable', 'taxable (pkr)', 'taxable amount', 'amount', 'gross amount'],
   tax: ['tax', 'tax (pkr)', 'tax amount', 'wht', 'tax deducted'],
+  error: ['error', 'error message', 'error description'],
 }
 
 function matchHeader(header: string): keyof Omit<WhtEntry, 'id'> | null {
