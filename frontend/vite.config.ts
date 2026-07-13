@@ -3,11 +3,11 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 import { obfuscatorPlugin } from './plugins/obfuscator'
 
-// Detect if building for Electron
 const isElectronBuild = process.env.BUILD_TARGET === 'electron';
+const isVercel = process.env.VERCEL === '1';
 
 export default defineConfig({
-  plugins: [react(), obfuscatorPlugin()],
+  plugins: [react(), ...(isVercel ? [] : [obfuscatorPlugin()])],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
