@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react'
 import { ChevronDown, Menu, X } from 'lucide-react'
 import { Logo } from './logo'
 import { cn } from '@/lib/utils'
+import { DEV_AUTH_DISABLED } from '@/config/auth'
+
+// In dev mode the Login button goes straight to the dashboard
+const loginHref = DEV_AUTH_DISABLED ? '/dashboard' : '/login'
 
 const navLinks = [
   { label: 'Home', id: 'home' },
@@ -84,7 +88,7 @@ export function Navbar() {
             Contact Us
           </button>
           <a
-            href="/login"
+            href={loginHref}
             className="inline-flex h-9 items-center justify-center rounded-lg bg-primary text-primary-foreground px-7 text-sm font-semibold transition-all hover:bg-primary/90"
           >
             Login
@@ -141,7 +145,7 @@ export function Navbar() {
               >
                 Contact Us
               </button>
-              <a href="/login" className="w-full" onClick={() => setOpen(false)}>
+              <a href={loginHref} className="w-full" onClick={() => setOpen(false)}>
                 <button className="w-full rounded-lg bg-primary text-primary-foreground h-9 px-7 text-sm font-semibold">
                   Login
                 </button>

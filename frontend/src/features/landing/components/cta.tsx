@@ -1,5 +1,8 @@
 import { ArrowRight, ShieldCheck, Lock, ClipboardCheck } from 'lucide-react'
 import { ScrollReveal } from './scroll-reveal'
+import { DEV_AUTH_DISABLED } from '@/config/auth'
+
+const loginHref = DEV_AUTH_DISABLED ? '/dashboard' : '/login'
 
 function CtaIllustration() {
   return (
@@ -50,7 +53,7 @@ export function Cta() {
                   <ArrowRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
                 </button>
               </a>
-              <a href="/login" className="text-sm font-semibold text-primary underline underline-offset-4 transition-colors hover:text-primary/80">
+              <a href={loginHref} className="text-sm font-semibold text-primary underline underline-offset-4 transition-colors hover:text-primary/80">
                 Sign In
               </a>
             </div>

@@ -75,25 +75,31 @@ async def lifespan(app: FastAPI):
             )
             db.add(admin2)
             db.commit()
-            # Write the generated password to a secure file readable only by the owner
-            creds_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".credentials")
-            os.makedirs(creds_dir, exist_ok=True)
-            creds_file = os.path.join(creds_dir, "admin_credentials.txt")
-            with open(creds_file, "w") as f:
-                f.write(f"Default admin password: {random_password}\n")
-                f.write(f"Username: zainkhan\n")
-            # Restrict file permissions on non-Windows platforms
-            import stat
+            # Write the generated password to a secure file readable only by the owner.
+            # This is best-effort: on serverless/read-only filesystems it is skipped safely.
             try:
-                os.chmod(creds_file, stat.S_IRUSR | stat.S_IWUSR)
-            except Exception:
-                pass
-            print(f"Default admin created. Username: zainkhan. Password saved to {creds_file}")
+                creds_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".credentials")
+                os.makedirs(creds_dir, exist_ok=True)
+                creds_file = os.path.join(creds_dir, "admin_credentials.txt")
+                with open(creds_file, "w") as f:
+                    f.write(f"Default admin password: {random_password}\n")
+                    f.write(f"Username: zainkhan\n")
+                import stat
+                try:
+                    os.chmod(creds_file, stat.S_IRUSR | stat.S_IWUSR)
+                except Exception:
+                    pass
+                print(f"Default admin created. Username: zainkhan. Password saved to {creds_file}")
+            except OSError:
+                print("Default admin created. Username: zainkhan. (credentials file skipped: read-only filesystem)")
     finally:
         db.close()
-    import threading
-    t = threading.Thread(target=cleanup_inactive_users, daemon=True)
-    t.start()
+    # The long-running cleanup loop is only useful on a persistent server.
+    # On serverless (Vercel) each invocation is short-lived, so skip it there.
+    if not (os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME")):
+        import threading
+        t = threading.Thread(target=cleanup_inactive_users, daemon=True)
+        t.start()
     yield
 
 

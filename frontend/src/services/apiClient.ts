@@ -45,7 +45,8 @@ class ApiClient {
           }
         } else if (!error.response && error.code !== 'ERR_CANCELED') {
           // Network error — server unreachable, DNS failure, timeout, etc.
-          if (!isRedirectingToConnectionError && !window.location.pathname.startsWith('/connection-error')) {
+          // In dev mode skip the redirect so the UI remains navigable without a running backend
+          if (!DEV_AUTH_DISABLED && !isRedirectingToConnectionError && !window.location.pathname.startsWith('/connection-error')) {
             isRedirectingToConnectionError = true
             window.location.href = '/connection-error'
             setTimeout(() => { isRedirectingToConnectionError = false }, 5000)

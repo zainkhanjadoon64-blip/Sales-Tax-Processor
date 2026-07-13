@@ -55,6 +55,8 @@ export function Login() {
 
     // DEV MODE: skip all auth checks and go straight to dashboard
     if (DEV_AUTH_DISABLED) {
+      localStorage.setItem('token', 'dev-token')
+      localStorage.setItem('user', JSON.stringify({ id: 'dev-user', name: 'Dev User', username: email || 'dev', role: 'admin' }))
       navigate('/dashboard', { replace: true })
       return
     }
@@ -352,7 +354,7 @@ export function Login() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Enter your email"
                     className="w-full h-12 pl-11 pr-4 rounded-xl border border-gray-200 bg-gray-50/50 text-sm text-slate-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                    required
+                    required={!DEV_AUTH_DISABLED}
                     autoComplete="email"
                   />
                 </div>
@@ -374,7 +376,7 @@ export function Login() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
                     className="w-full h-12 pl-11 pr-12 rounded-xl border border-gray-200 bg-gray-50/50 text-sm text-slate-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                    required
+                    required={!DEV_AUTH_DISABLED}
                     autoComplete="current-password"
                   />
                   <button

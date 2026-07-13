@@ -1,5 +1,8 @@
 import { Sparkles } from 'lucide-react'
 import { DashboardMockup } from './dashboard-mockup'
+import { DEV_AUTH_DISABLED } from '@/config/auth'
+
+const loginHref = DEV_AUTH_DISABLED ? '/dashboard' : '/login'
 
 const avatars = [
   { src: '/images/avatar-1.png', alt: 'Business owner portrait' },
@@ -48,7 +51,7 @@ export function Hero() {
                 <Sparkles className="ml-1 h-4 w-4 transition-transform group-hover:scale-110" aria-hidden="true" />
               </button>
             </a>
-            <a href="/login">
+            <a href={loginHref}>
               <button className="group inline-flex h-12 items-center justify-center rounded-lg border border-primary/30 bg-transparent px-7 text-base font-semibold text-primary transition-all hover:bg-accent hover:text-primary">
                 Sign In
               </button>

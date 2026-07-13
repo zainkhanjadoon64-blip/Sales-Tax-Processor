@@ -20,10 +20,16 @@ async def get_current_user(
     db: Session = Depends(get_db)
 ) -> User:
     if DEV_AUTH_DISABLED:
-        user = db.query(User).filter(User.username == "zainkhan").first()
+        # Prefer the seeded dev user, then any admin, then the first available user
+        user = (
+            db.query(User).filter(User.username == "zainkhan").first()
+            or db.query(User).filter(User.role == "admin").first()
+            or db.query(User).first()
+        )
         if user:
-            logger.info("Development auth bypass enabled; returning default dev user")
+            logger.info("Development auth bypass enabled; returning default dev user: %s", user.username)
             return user
+        logger.warning("Development auth bypass enabled but no users exist in the database")
 
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

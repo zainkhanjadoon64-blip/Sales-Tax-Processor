@@ -33,6 +33,22 @@ def get_storage_base_path() -> Path:
     return Path(settings.STORAGE_PATH)
 
 
+def _safe_mkdir(folder: Path) -> Path:
+    """Create the folder on disk, but skip silently when the filesystem is
+    read-only (serverless) or Blob storage is in use."""
+    try:
+        from app.services import blob_storage
+        if blob_storage.is_enabled():
+            return folder
+    except Exception:
+        pass
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
+    return folder
+
+
 def resolve_withholding_folder(client_name: str, section_or_category: str) -> Path:
     """
     Return the storage folder for a client's withholding documents.
@@ -40,8 +56,7 @@ def resolve_withholding_folder(client_name: str, section_or_category: str) -> Pa
     """
     base = get_storage_base_path() / "Clients" / client_name / "Withholding"
     folder = base / section_or_category
-    folder.mkdir(parents=True, exist_ok=True)
-    return folder
+    return _safe_mkdir(folder)
 
 
 def generate_withholding_filename(
@@ -75,26 +90,37 @@ def save_file_with_versioning(
     folder: Path,
     filename: str,
     content: bytes,
-) -> tuple[Path, str]:
+    content_type: Optional[str] = None,
+) -> tuple[str, str]:
     """
-    Save a file to the given folder. If a file with the same name exists,
-    append a version suffix (_v1, _v2, etc.) to avoid overwriting.
-    
-    Returns: (final_path, final_filename)
+    Persist a file and return (path_or_url, final_filename).
+
+    When Vercel Blob is configured (e.g. on serverless), the file is uploaded to
+    Blob and the returned path is the blob URL. Otherwise it is written to the
+    local filesystem with version-suffix collision handling. Callers store the
+    returned path in Document.file_path, so both modes work transparently.
     """
+    from app.services import blob_storage
+
+    if blob_storage.is_blob_url is not None and blob_storage.is_enabled():
+        # Blob adds a random suffix for uniqueness, so no manual versioning needed
+        key = f"{Path(folder).as_posix()}/{filename}"
+        url = blob_storage.upload_bytes(key, content, content_type=content_type)
+        return url, filename
+
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
-    
+
     stem, ext = os.path.splitext(filename)
     final_path = folder / filename
     counter = 1
-    
+
     while final_path.exists():
         final_path = folder / f"{stem}_v{counter}{ext}"
         counter += 1
-    
+
     final_path.write_bytes(content)
-    return final_path, final_path.name
+    return str(final_path), final_path.name
 
 
 def ensure_client_folder_structure(client_name: str) -> dict[str, Path]:
@@ -115,8 +141,7 @@ def resolve_sales_tax_folder(client_name: str, year: int) -> Path:
     Pattern: storage/Clients/{ClientName}/{Year}/Sales_Tax/
     """
     base = get_storage_base_path() / "Clients" / client_name / str(year) / "Sales_Tax"
-    base.mkdir(parents=True, exist_ok=True)
-    return base
+    return _safe_mkdir(base)
 
 
 def generate_sales_tax_filename(
