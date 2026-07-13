@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { authService } from '@/services/authService'
+import { DEV_AUTH_DISABLED } from '@/config/auth'
 import BorderGlow from '@/components/ui/BorderGlow'
 import {
   Shield,
@@ -51,6 +52,12 @@ export function Login() {
     e.preventDefault()
     setError('')
     setLoading(true)
+
+    // DEV MODE: skip all auth checks and go straight to dashboard
+    if (DEV_AUTH_DISABLED) {
+      navigate('/dashboard', { replace: true })
+      return
+    }
 
     try {
       const response = await authService.login({ username: email, password })
