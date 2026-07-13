@@ -7,6 +7,7 @@ from app.models.user import User
 from app.core.security import create_access_token, verify_password, get_password_hash
 from app.api.deps import get_current_user
 from app.core.config import settings
+from app.core.dev_auth import DEV_AUTH_DISABLED
 from datetime import timedelta, datetime
 
 router = APIRouter()
@@ -44,6 +45,19 @@ class RegisterResponse(BaseModel):
 
 @router.post("/login", response_model=LoginResponse)
 def login(request: LoginRequest, db: Session = Depends(get_db)):
+    # DEV MODE: accept any credentials and return a mock token
+    if DEV_AUTH_DISABLED:
+        access_token = create_access_token(
+            data={"sub": request.username, "user_id": "dev-user"},
+            expires_delta=timedelta(minutes=settings.JWT_EXPIRE_MINUTES),
+        )
+        return LoginResponse(
+            success=True,
+            token=access_token,
+            user={"id": "dev-user", "name": "Dev User", "username": request.username},
+            message="Dev mode: login bypassed",
+        )
+
     user = db.query(User).filter(User.username == request.username).first()
 
     if not user or not verify_password(request.password, user.password_hash):
