@@ -5,6 +5,18 @@ from app.db.session import engine
 
 logger = logging.getLogger(__name__)
 
+# Detect database dialect once
+_IS_POSTGRES = str(engine.url).startswith("postgresql")
+_IS_SQLITE = str(engine.url).startswith("sqlite")
+
+
+def _bool_default_true() -> str:
+    return "DEFAULT TRUE" if _IS_POSTGRES else "DEFAULT 1"
+
+def _bool_default_false() -> str:
+    return "DEFAULT FALSE" if _IS_POSTGRES else "DEFAULT 0"
+
+
 CLIENT_COLUMN_MIGRATIONS = [
     ("contact_person", "VARCHAR(255)"),
     ("contact_person_designation", "VARCHAR(255)"),
@@ -19,12 +31,19 @@ CLIENT_COLUMN_MIGRATIONS = [
     ("tax_period", "VARCHAR(20)"),
     ("fbr_office", "VARCHAR(255)"),
     ("sales_tax_material_status", "VARCHAR(10) DEFAULT 'NIL' NOT NULL"),
-    ("withholding_236_applied", "BOOLEAN DEFAULT 0 NOT NULL"),
-    ("withholding_236_prepared_by_us", "BOOLEAN DEFAULT 0 NOT NULL"),
-    ("withholding_153_applicable", "BOOLEAN DEFAULT 0 NOT NULL"),
-    ("withholding_153_prepared_by_us", "BOOLEAN DEFAULT 0 NOT NULL"),
-    ("is_active", "BOOLEAN DEFAULT 1 NOT NULL"),
-    ("kpra_registered", "BOOLEAN DEFAULT 0 NOT NULL"),
+    # booleans resolved at runtime below
+]
+
+CLIENT_BOOL_MIGRATIONS = [
+    ("withholding_236_applied", False),
+    ("withholding_236_prepared_by_us", False),
+    ("withholding_153_applicable", False),
+    ("withholding_153_prepared_by_us", False),
+    ("is_active", True),
+    ("kpra_registered", False),
+]
+
+CLIENT_EXTRA_MIGRATIONS = [
     ("withholding_filing_frequency", "VARCHAR(20)"),
 ]
 
@@ -35,32 +54,47 @@ DOCUMENT_COLUMN_MIGRATIONS = [
     ("tax_year", "INTEGER"),
     ("tax_month", "INTEGER"),
     ("filing_status", "VARCHAR(50)"),
-    ("is_missing", "BOOLEAN DEFAULT 0"),
     ("document_date", "DATE"),
     ("expiry_date", "DATE"),
     ("deleted_at", "TIMESTAMP"),
-    ("is_deleted", "BOOLEAN DEFAULT 0"),
     ("version", "INTEGER DEFAULT 1"),
-    ("parent_document_id", "UUID"),
     ("notes", "TEXT"),
     ("tags", "TEXT"),
-    ("custom_metadata", "TEXT DEFAULT '{}'"),
-    ("batch_id", "UUID"),
     ("checksum", "VARCHAR(64)"),
-    ("created_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
-    ("updated_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
     ("search_vector", "TEXT"),
 ]
 
+DOCUMENT_BOOL_MIGRATIONS = [
+    ("is_missing", False),
+    ("is_deleted", False),
+]
+
+DOCUMENT_UUID_MIGRATIONS = [
+    ("parent_document_id",),
+    ("batch_id",),
+]
+
+DOCUMENT_TEXT_MIGRATIONS = [
+    ("custom_metadata", "TEXT DEFAULT '{}'"),
+]
+
+DOCUMENT_TS_MIGRATIONS = [
+    ("created_at",),
+    ("updated_at",),
+]
+
 NOTIFICATION_COLUMN_MIGRATIONS = [
-    ("client_id", "UUID"),
-    ("task_id", "UUID"),
+    ("client_id", "TEXT" if _IS_SQLITE else "UUID"),
+    ("task_id", "TEXT" if _IS_SQLITE else "UUID"),
 ]
 
 USER_COLUMN_MIGRATIONS = [
     ("role", "VARCHAR(20) DEFAULT 'user' NOT NULL"),
-    ("is_approved", "BOOLEAN DEFAULT 0 NOT NULL"),
     ("last_activity_at", "TIMESTAMP"),
+]
+
+USER_BOOL_MIGRATIONS = [
+    ("is_approved", False),
 ]
 
 BANNED_COLUMN_MIGRATIONS = [
@@ -68,30 +102,33 @@ BANNED_COLUMN_MIGRATIONS = [
 ]
 
 
-def _normalize_column_type_for_sqlite(column_type: str) -> str:
-    if str(engine.url).startswith("sqlite"):
-        column_type = column_type.replace("UUID", "TEXT")
-        column_type = column_type.replace("JSON", "TEXT")
-        if "DEFAULT CURRENT_TIMESTAMP" in column_type or "DEFAULT NOW()" in column_type:
-            column_type = column_type.replace("DEFAULT CURRENT_TIMESTAMP", "")
-            column_type = column_type.replace("DEFAULT NOW()", "")
-            column_type = column_type.replace("NOT NULL", "")
-            column_type = " ".join(column_type.split())
-    return column_type
-
-
-def _add_columns(conn, table_name: str, migrations: list, existing: set) -> list[str]:
+def _add_columns(conn, table_name: str, migrations: list, existing: set) -> list:
     """Add missing columns to a table. Returns list of added column names."""
-    added: list[str] = []
+    added = []
     for column_name, column_type in migrations:
         if column_name in existing:
             continue
         try:
-            normalized_type = _normalize_column_type_for_sqlite(column_type)
-            conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {normalized_type}"))
+            conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"))
             added.append(column_name)
         except Exception as e:
             logger.warning("Could not add column %s.%s: %s", table_name, column_name, e)
+    return added
+
+
+def _add_bool_columns(conn, table_name: str, bool_migrations: list, existing: set) -> list:
+    """Add missing boolean columns with DB-appropriate defaults."""
+    added = []
+    for column_name, default_true in bool_migrations:
+        if column_name in existing:
+            continue
+        default = _bool_default_true() if default_true else _bool_default_false()
+        col_type = "BOOLEAN" if _IS_POSTGRES else "INTEGER"
+        try:
+            conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {col_type} {default} NOT NULL"))
+            added.append(column_name)
+        except Exception as e:
+            logger.warning("Could not add bool column %s.%s: %s", table_name, column_name, e)
     return added
 
 
@@ -104,6 +141,8 @@ def run_migrations() -> None:
         existing = {col["name"] for col in inspector.get_columns("clients")}
         with engine.begin() as conn:
             added = _add_columns(conn, "clients", CLIENT_COLUMN_MIGRATIONS, existing)
+            added += _add_bool_columns(conn, "clients", CLIENT_BOOL_MIGRATIONS, existing)
+            added += _add_columns(conn, "clients", CLIENT_EXTRA_MIGRATIONS, existing)
         if added:
             logger.info("Applied client migrations: %s", ", ".join(added))
         else:
@@ -116,6 +155,30 @@ def run_migrations() -> None:
         existing = {col["name"] for col in inspector.get_columns("documents")}
         with engine.begin() as conn:
             added = _add_columns(conn, "documents", DOCUMENT_COLUMN_MIGRATIONS, existing)
+            added += _add_bool_columns(conn, "documents", DOCUMENT_BOOL_MIGRATIONS, existing)
+            # UUID columns
+            for (col_name,) in DOCUMENT_UUID_MIGRATIONS:
+                if col_name not in existing:
+                    col_type = "UUID" if _IS_POSTGRES else "TEXT"
+                    try:
+                        conn.execute(text(f"ALTER TABLE documents ADD COLUMN {col_name} {col_type}"))
+                        added.append(col_name)
+                    except Exception as e:
+                        logger.warning("Could not add UUID column documents.%s: %s", col_name, e)
+            # Text migrations
+            added += _add_columns(conn, "documents", DOCUMENT_TEXT_MIGRATIONS, existing)
+            # Timestamp columns
+            for (col_name,) in DOCUMENT_TS_MIGRATIONS:
+                if col_name not in existing:
+                    if _IS_POSTGRES:
+                        col_def = f"TIMESTAMP DEFAULT NOW()"
+                    else:
+                        col_def = "TIMESTAMP"
+                    try:
+                        conn.execute(text(f"ALTER TABLE documents ADD COLUMN {col_name} {col_def}"))
+                        added.append(col_name)
+                    except Exception as e:
+                        logger.warning("Could not add TS column documents.%s: %s", col_name, e)
         if added:
             logger.info("Applied document migrations: %s", ", ".join(added))
         else:
@@ -126,11 +189,10 @@ def run_migrations() -> None:
     # --- Document activity log table ---
     if "document_activity_log" not in tables:
         with engine.begin() as conn:
-            is_postgres = str(engine.url).startswith("postgresql")
-            if is_postgres:
+            if _IS_POSTGRES:
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS document_activity_log (
-                        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                         document_id UUID NOT NULL,
                         user_id UUID,
                         activity_type VARCHAR(50) NOT NULL,
@@ -155,7 +217,6 @@ def run_migrations() -> None:
                 """))
         logger.info("Created document_activity_log table")
     else:
-        # Add metadata column if missing
         existing = {col["name"] for col in inspector.get_columns("document_activity_log")}
         if "metadata" not in existing:
             with engine.begin() as conn:
@@ -165,11 +226,10 @@ def run_migrations() -> None:
     # --- Saved filters table ---
     if "saved_filters" not in tables:
         with engine.begin() as conn:
-            is_postgres = str(engine.url).startswith("postgresql")
-            if is_postgres:
+            if _IS_POSTGRES:
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS saved_filters (
-                        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                         user_id UUID NOT NULL,
                         name VARCHAR(200) NOT NULL,
                         filter_config TEXT NOT NULL,
@@ -202,23 +262,15 @@ def run_migrations() -> None:
     else:
         logger.info("notifications table does not exist yet; skipping")
 
-    # --- Settings migrations ---
-    if "settings" in tables:
-        existing_cols = {col["name"] for col in inspector.get_columns("settings")}
-        # No specific migrations needed, just ensure table exists
-    else:
-        logger.info("settings table does not exist yet; skipping")
-
     # --- User migrations ---
     if "users" in tables:
         existing = {col["name"] for col in inspector.get_columns("users")}
         with engine.begin() as conn:
             added = _add_columns(conn, "users", USER_COLUMN_MIGRATIONS, existing)
+            added += _add_bool_columns(conn, "users", USER_BOOL_MIGRATIONS, existing)
         if added:
             logger.info("Applied user migrations: %s", ", ".join(added))
 
-        # Only run banned_until migration if is_approved migration already applied
-        # to avoid duplicate column issues
         existing2 = {col["name"] for col in inspector.get_columns("users")}
         with engine.begin() as conn:
             added = _add_columns(conn, "users", BANNED_COLUMN_MIGRATIONS, existing2)

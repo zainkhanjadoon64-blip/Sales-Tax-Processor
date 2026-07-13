@@ -18,8 +18,7 @@ class Settings(BaseSettings):
 
     JWT_SECRET: str = Field(
         ...,
-        min_length=32,
-        description="JWT signing secret. Must be set via JWT_SECRET environment variable and be at least 32 characters long."
+        description="JWT signing secret. Must be set via JWT_SECRET environment variable."
     )
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 60 * 24 * 7
