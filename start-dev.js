@@ -5,6 +5,26 @@ const { existsSync, readFileSync, writeFileSync } = require('node:fs')
 const { join } = require('node:path')
 const { spawn, spawnSync } = require('node:child_process')
 
+// Load .env.development.local and .env into process.env so child processes inherit them
+function loadEnvFile(filePath) {
+  if (!existsSync(filePath)) return
+  const lines = readFileSync(filePath, 'utf8').split('\n')
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#')) continue
+    const eqIdx = trimmed.indexOf('=')
+    if (eqIdx < 1) continue
+    const key = trimmed.slice(0, eqIdx).trim()
+    const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '')
+    if (key && !(key in process.env)) {
+      process.env[key] = val
+    }
+  }
+}
+
+loadEnvFile(join(__dirname, '.env.development.local'))
+loadEnvFile(join(__dirname, '.env'))
+
 const root = __dirname
 const backendDir = join(root, 'backend')
 const requirements = join(backendDir, 'requirements.txt')
