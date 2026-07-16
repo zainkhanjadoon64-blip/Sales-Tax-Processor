@@ -271,6 +271,14 @@ DATA_START_ROW = 4  # headers are on row 3; data begins on row 4
 VALIDATE_MACRO = "validateWFData"
 
 
+THIN_BORDER = Border(
+    left=Side(style="thin"),
+    right=Side(style="thin"),
+    top=Side(style="thin"),
+    bottom=Side(style="thin"),
+)
+
+
 def _write_records_to_sheet(ws, records: list[dict]) -> None:
     """Write normalized records into the template sheet starting at row 4 using openpyxl."""
     TEXT_FORMAT = "@"
@@ -290,6 +298,8 @@ def _write_records_to_sheet(ws, records: list[dict]) -> None:
         c7 = ws.cell(row=row, column=7, value=str(r.get("exemption_code", "") or ""))
         c7.number_format = TEXT_FORMAT
         ws.cell(row=row, column=8, value=r.get("tax_amount", 0) or 0)
+        for col in range(1, 9):
+            ws.cell(row=row, column=col).border = THIN_BORDER
 
 
 def _build_via_com(records: list[dict]) -> bytes:
@@ -301,9 +311,7 @@ def build_statement_workbook(records: list[dict]) -> bytes:
     """
     Build a Section 165 statement .xlsm workbook using the official FBR template.
 
-    Uses openpyxl to write data (preserves string types), then win32com only
-    to trigger the VBA validation macro. Matches the working pattern from
-    the FBR Tax Processor project.
+    Uses openpyxl to write data. Compatible with all platforms (no win32com).
     """
     if not os.path.isfile(TEMPLATE_PATH):
         raise FileNotFoundError(
@@ -316,54 +324,12 @@ def build_statement_workbook(records: list[dict]) -> bytes:
     try:
         shutil.copy(TEMPLATE_PATH, temp_path)
 
-        # Step 1: Write data with openpyxl (preserves string types, no auto-conversion)
         wb = openpyxl.load_workbook(temp_path, keep_vba=True)
         ws = wb[TEMPLATE_SHEET]
         ws.protection.sheet = False
         _write_records_to_sheet(ws, records)
         wb.save(temp_path)
         wb.close()
-
-        # Step 2: Use COM only for VBA validation macro
-        import win32com.client
-        import pythoncom
-
-        pythoncom.CoInitialize()
-        excel = None
-        xl_wb = None
-        try:
-            excel = win32com.client.DispatchEx("Excel.Application")
-            excel.Visible = False
-            excel.DisplayAlerts = False
-            excel.ScreenUpdating = False
-
-            xl_wb = excel.Workbooks.Open(os.path.abspath(temp_path))
-            ws = xl_wb.Sheets(TEMPLATE_SHEET)
-
-            excel.Application.Run(VALIDATE_MACRO)
-
-            VBA_PASS = "FBRpralIRIS15"
-            ws.Unprotect(VBA_PASS)
-            last_data_row = DATA_START_ROW + len(records) - 1 if records else DATA_START_ROW
-            for r in range(DATA_START_ROW, last_data_row + 1):
-                for c in range(1, 10):
-                    ws.Cells(r, c).Locked = False
-            ws.Protect(VBA_PASS)
-
-            xl_wb.Save()
-            xl_wb.Close(False)
-            xl_wb = None
-            excel.Quit()
-            excel = None
-        finally:
-            if xl_wb is not None:
-                try: xl_wb.Close(False)
-                except: pass
-            if excel is not None:
-                try: excel.Quit()
-                except: pass
-            try: pythoncom.CoUninitialize()
-            except: pass
 
         with open(temp_path, "rb") as f:
             return f.read()
@@ -483,8 +449,7 @@ def append_to_existing_statement(existing_bytes: bytes, new_records: list[dict])
     """Append new records to an existing statement .xlsm file.
 
     Reads the existing file, finds the last data row (>= row 4),
-    appends normalized records below, saves, then runs VBA macro.
-    Returns the complete .xlsm bytes.
+    appends normalized records below. Compatible with all platforms.
     """
     fd, temp_path = tempfile.mkstemp(suffix=".xlsm")
     os.close(fd)
@@ -520,45 +485,11 @@ def append_to_existing_statement(existing_bytes: bytes, new_records: list[dict])
             c7 = ws.cell(row=row, column=7, value=str(r.get("exemption_code", "") or ""))
             c7.number_format = TEXT_FORMAT
             ws.cell(row=row, column=8, value=r.get("tax_amount", 0) or 0)
+            for col in range(1, 9):
+                ws.cell(row=row, column=col).border = THIN_BORDER
 
         wb.save(temp_path)
         wb.close()
-
-        import win32com.client
-        import pythoncom
-        pythoncom.CoInitialize()
-        excel = None
-        xl_wb = None
-        try:
-            excel = win32com.client.DispatchEx("Excel.Application")
-            excel.Visible = False
-            excel.DisplayAlerts = False
-            excel.ScreenUpdating = False
-            xl_wb = excel.Workbooks.Open(os.path.abspath(temp_path))
-            ws = xl_wb.Sheets(TEMPLATE_SHEET)
-            excel.Application.Run(VALIDATE_MACRO)
-            VBA_PASS = "FBRpralIRIS15"
-            ws.Unprotect(VBA_PASS)
-            last_new_row = start_row + len(new_records) - 1 if new_records else last_row
-            end_row = max(last_row, last_new_row) if new_records else last_row
-            for r in range(DATA_START_ROW, end_row + 1):
-                for c in range(1, 10):
-                    ws.Cells(r, c).Locked = False
-            ws.Protect(VBA_PASS)
-            xl_wb.Save()
-            xl_wb.Close(False)
-            xl_wb = None
-            excel.Quit()
-            excel = None
-        finally:
-            if xl_wb is not None:
-                try: xl_wb.Close(False)
-                except: pass
-            if excel is not None:
-                try: excel.Quit()
-                except: pass
-            try: pythoncom.CoUninitialize()
-            except: pass
 
         with open(temp_path, "rb") as f:
             return f.read()
