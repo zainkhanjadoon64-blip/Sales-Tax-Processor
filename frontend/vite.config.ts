@@ -40,12 +40,22 @@ export default defineConfig({
     sourcemap: false,
     // Use relative paths for Electron
     base: isElectronBuild ? './' : '/',
-    // Ensure proper chunk naming for Electron
-    rollupOptions: isElectronBuild ? {
-      input: {
-        main: path.resolve(__dirname, 'index.html'),
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      ...(isElectronBuild ? {
+        input: {
+          main: path.resolve(__dirname, 'index.html'),
+        },
+      } : {}),
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          ui: ['lucide-react', 'motion'],
+          data: ['xlsx', 'recharts'],
+          forms: ['react-hook-form', '@hookform/resolvers', 'zod'],
+        },
       },
-    } : undefined,
+    },
   },
   // Define globals for Electron
   define: {

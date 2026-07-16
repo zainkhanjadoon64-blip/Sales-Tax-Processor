@@ -49,7 +49,7 @@ export function obfuscatorPlugin(): Plugin {
             deadCodeInjection: false,
             identifierNamesGenerator: 'hexadecimal',
             renameGlobals: false,
-            selfDefending: true,
+            selfDefending: false,
             stringArray: true,
             stringArrayEncoding: ['base64'],
             stringArrayThreshold: 0.5,

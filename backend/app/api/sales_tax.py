@@ -146,7 +146,7 @@ def create_sales_tax_record(
 @router.get("/", response_model=SalesTaxListResponse)
 def get_sales_tax_records(
     page: int = Query(1, ge=1),
-    limit: int = Query(25, ge=1, le=100),
+    limit: int = Query(25, ge=1, le=200),
     client_id: Optional[UUID] = Query(None),
     year: Optional[int] = Query(None),
     month: Optional[int] = Query(None),
