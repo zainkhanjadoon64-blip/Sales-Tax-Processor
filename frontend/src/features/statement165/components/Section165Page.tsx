@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import {
   Eye, Edit, Download, Shield, Trash2, Database, Cloud, Loader2,
-  X, ChevronRight, List,
+  X, ChevronRight, List, RefreshCw, FileWarning, Upload, Merge,
 } from 'lucide-react'
 import type { WhtEntry } from '../types'
 import AnimatedList from './AnimatedList'
@@ -9,6 +9,30 @@ import { formatPkr } from '../types'
 import * as api from '../services/statement165Service'
 
 type Step = 'input' | 'draft' | 'final'
+
+type UploadError = {
+  file: File
+  message: string
+}
+
+const ALLOWED_EXTENSIONS = ['.pdf', '.xlsx', '.xlsm']
+const MAX_FILE_SIZE_MB = 10
+
+function getFileExtension(name: string): string {
+  const i = name.lastIndexOf('.')
+  return i >= 0 ? name.slice(i).toLowerCase() : ''
+}
+
+function validateFile(file: File): string | null {
+  const ext = getFileExtension(file.name)
+  if (!ALLOWED_EXTENSIONS.includes(ext)) {
+    return `Unsupported file type "${ext}". Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`
+  }
+  if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+    return `File "${file.name}" exceeds ${MAX_FILE_SIZE_MB}MB limit`
+  }
+  return null
+}
 
 export function Section165Page() {
   const [activeStep, setActiveStep] = useState<Step>('input')
@@ -18,7 +42,17 @@ export function Section165Page() {
   const [showHistory, setShowHistory] = useState(false)
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [loading, setLoading] = useState(false)
+  const [processingFiles, setProcessingFiles] = useState<string[]>([])
+  const [uploadErrors, setUploadErrors] = useState<UploadError[]>([])
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
+  const inputRef = useRef<HTMLInputElement>(null)
+  const processInputRef = useRef<HTMLInputElement>(null)
+
+  const [showAppendModal, setShowAppendModal] = useState(false)
+  const [existingFile, setExistingFile] = useState<File | null>(null)
+  const [existingEntries, setExistingEntries] = useState<WhtEntry[]>([])
+  const [appendLoading, setAppendLoading] = useState(false)
+  const appendInputRef = useRef<HTMLInputElement>(null)
 
   const notify = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message })
@@ -41,12 +75,13 @@ export function Section165Page() {
     tax: entries.reduce((s, e) => s + e.tax, 0),
   }), [entries])
 
+  const clearUploadErrors = () => setUploadErrors([])
+
   const removeEntry = (ids: string | string[]) => {
     const idList = Array.isArray(ids) ? ids : [ids]
     setDeletingIds(prev => new Set([...prev, ...idList]))
     setTimeout(() => {
       setEntries(prev => prev.filter(e => !idList.includes(e.id)))
-      idList.forEach(id => api.deleteEntry(id).catch(() => {}))
       setDeletingIds(prev => {
         const next = new Set(prev)
         idList.forEach(id => next.delete(id))
@@ -56,51 +91,65 @@ export function Section165Page() {
   }
 
   const handleUpload = async (file: File): Promise<{ successCount: number; errorCount: number }> => {
+    const fileError = validateFile(file)
+    if (fileError) {
+      setUploadErrors(prev => [...prev, { file, message: fileError }])
+      return { successCount: 0, errorCount: 1 }
+    }
     try {
       const result: any = await api.uploadStatementFile(file)
       const errors: { file: string; error: string }[] = result.errors || []
       const entries = result.entries || []
 
       if (entries.length > 0) {
-        const marked = entries.map((e: any) => ({
-          ...e,
-          error: undefined,
-        }))
-        setEntries(prev => [...prev, ...marked])
+        setEntries(prev => [...prev, ...entries])
       }
 
       if (errors.length > 0) {
-        const errorEntries = errors.map((err: any) => ({
-          id: crypto.randomUUID(),
-          name: err.file,
-          cnicNtn: '',
-          date: '',
-          code: '',
-          taxable: 0,
-          tax: 0,
-          error: err.error,
-        }))
-        setEntries(prev => [...prev, ...errorEntries])
+        setUploadErrors(prev => [...prev, ...errors.map((e: any) => ({ file, message: e.error || 'Unknown error' }))])
       }
 
       return { successCount: entries.length, errorCount: errors.length }
-    } catch {
+    } catch (err: any) {
+      const message = err?.message || err?.statusText || 'Upload failed'
+      setUploadErrors(prev => [...prev, { file, message }])
       return { successCount: 0, errorCount: 1 }
     }
   }
 
   const handleUploadMultiple = async (files: FileList | null) => {
-    if (!files) return
+    if (!files || files.length === 0) return
     setLoading(true)
-    const results = await Promise.all(Array.from(files).map(file => handleUpload(file)))
+    setUploadErrors([])
+    const fileList = Array.from(files)
+    setProcessingFiles(fileList.map(f => f.name))
+    let totalSuccess = 0
+    let totalErrors = 0
+    for (const file of fileList) {
+      const result = await handleUpload(file)
+      totalSuccess += result.successCount
+      totalErrors += result.errorCount
+      setProcessingFiles(prev => prev.filter(n => n !== file.name))
+    }
+    setProcessingFiles([])
     setLoading(false)
-    const totalSuccess = results.reduce((s, r) => s + r.successCount, 0)
-    const totalErrors = results.reduce((s, r) => s + r.errorCount, 0)
 
-    if (totalErrors > 0) {
-      notify('error', `Error Importing Files`)
+    if (totalErrors > 0 && totalSuccess > 0) {
+      notify('error', `Imported ${totalSuccess} entries, ${totalErrors} file(s) had errors`)
+    } else if (totalErrors > 0) {
+      notify('error', `${totalErrors} file(s) failed to import`)
     } else if (totalSuccess > 0) {
-      notify('success', 'Import Successful')
+      notify('success', `Successfully imported ${totalSuccess} entries`)
+    }
+  }
+
+  const retryUpload = async (uploadError: UploadError) => {
+    setUploadErrors(prev => prev.filter(e => e.file !== uploadError.file))
+    setProcessingFiles(prev => [...prev, uploadError.file.name])
+    const result = await handleUpload(uploadError.file)
+    setProcessingFiles(prev => prev.filter(n => n !== uploadError.file.name))
+    if (result.successCount > 0) {
+      notify('success', `Retry successful: ${result.successCount} entries imported`)
     }
   }
 
@@ -113,13 +162,55 @@ export function Section165Page() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `165_Statement_${Date.now()}.xlsx`
+      a.download = `165_Statement_${Date.now()}.xlsm`
       a.click()
       URL.revokeObjectURL(url)
     } catch {
       alert('Failed to process statement. Check backend connection.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleAppendExisting = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setAppendLoading(true)
+    setExistingFile(file)
+    try {
+      const result: any = await api.uploadExistingStatement(file)
+      if (result.entries) {
+        setExistingEntries(result.entries)
+      }
+      notify('success', `Found ${result.count || 0} entries in existing file`)
+    } catch {
+      notify('error', 'Failed to read existing file')
+      setExistingFile(null)
+      setExistingEntries([])
+    } finally {
+      setAppendLoading(false)
+    }
+  }
+
+  const handleMergeAndDownload = async () => {
+    if (!existingFile || entries.length === 0) return
+    setAppendLoading(true)
+    try {
+      const blob = await api.appendToExistingStatement(existingFile, entries)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `165_Statement_Merged_${Date.now()}.xlsm`
+      a.click()
+      URL.revokeObjectURL(url)
+      setShowAppendModal(false)
+      setExistingFile(null)
+      setExistingEntries([])
+      notify('success', `Merged ${entries.length} entries into existing file`)
+    } catch {
+      notify('error', 'Failed to merge. Check backend connection.')
+    } finally {
+      setAppendLoading(false)
     }
   }
 
@@ -210,12 +301,48 @@ export function Section165Page() {
               <Cloud className="mb-2 h-8 w-8 text-slate-300" />
               <p className="text-xs text-slate-500">Drag & drop your files here</p>
               <p className="my-1.5 text-xs text-slate-400">or</p>
-              <label className="cursor-pointer rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-700">
-                Choose Files
-                <input type="file" className="hidden" multiple accept=".pdf,.xlsx,.xlsm" onChange={e => { handleUploadMultiple(e.target.files); e.target.value = '' }} />
+              <label className="cursor-pointer rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
+                {loading ? 'Uploading...' : 'Choose Files'}
+                <input ref={inputRef} type="file" className="hidden" multiple accept=".pdf,.xlsx,.xlsm" disabled={loading} onChange={e => { handleUploadMultiple(e.target.files); e.target.value = '' }} />
               </label>
-              <p className="mt-1.5 text-xs text-slate-400">Supports: .pdf, .xlsx, .xlsm (multiple)</p>
+              <p className="mt-1.5 text-xs text-slate-400">Supports: .pdf, .xlsx, .xlsm (multiple, max {MAX_FILE_SIZE_MB}MB each)</p>
             </div>
+
+            {/* Upload Progress */}
+            {processingFiles.length > 0 && (
+              <div className="mt-3 space-y-1.5">
+                {processingFiles.map(fileName => (
+                  <div key={fileName} className="flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+                    <span className="truncate text-xs text-blue-700">{fileName}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Upload Errors */}
+            {uploadErrors.length > 0 && (
+              <div className="mt-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-red-700">{uploadErrors.length} file(s) failed</p>
+                  <button onClick={clearUploadErrors} className="text-xs text-slate-400 hover:text-slate-600">Clear</button>
+                </div>
+                {uploadErrors.map(err => (
+                  <div key={`${err.file.name}-${err.message}`} className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                    <FileWarning className="h-3.5 w-3.5 shrink-0 text-red-500" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-medium text-red-700">{err.file.name}</p>
+                      <p className="truncate text-xs text-red-500">{err.message}</p>
+                    </div>
+                    {!loading && (
+                      <button onClick={() => retryUpload(err)} className="flex shrink-0 items-center gap-1 rounded bg-white px-2 py-1 text-xs font-medium text-blue-600 shadow-sm hover:bg-blue-50">
+                        <RefreshCw className="h-3 w-3" /> Retry
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Recent Entries */}
@@ -243,38 +370,43 @@ export function Section165Page() {
               </div>
             </div>
             <div className="w-full">
-              {loading ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-                </div>
-              ) : entries.length === 0 ? (
+              {entries.length === 0 && !loading ? (
                 <p className="py-4 text-center text-xs text-slate-400">No entries yet. Add taxpayer data to begin.</p>
               ) : (
-                <AnimatedList
-                  items={entries}
-                  showGradients={true}
-                  enableArrowNavigation={false}
-                  displayScrollbar={true}
-                  renderItem={(entry: WhtEntry) => (
-                    <div
-                      className={`grid items-center gap-2 rounded-lg border px-3 py-2 ${deletingIds.has(entry.id) ? 'del' : ''} ${entry.error ? 'border-red-200 bg-red-50' : 'border-slate-100 bg-slate-50'}`}
-                      style={{ gridTemplateColumns: '1fr auto' }}
-                      title={entry.error || undefined}
-                    >
-                      <div className="min-w-0">
-                        <p className={`truncate text-xs font-semibold ${entry.error ? 'text-red-700' : 'text-slate-800'}`}>{entry.name}</p>
-                        {entry.error ? (
-                          <p className="truncate text-xs text-red-500">{entry.error}</p>
-                        ) : (
-                          <p className="truncate text-xs text-slate-400">{entry.cnicNtn || '—'} · Rs. {formatPkr(entry.tax)}</p>
-                        )}
-                      </div>
-                      <button onClick={() => removeEntry(entry.id)} className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-500">
-                        <Trash2 className="h-3 w-3" />
-                      </button>
+                <>
+                  {loading && entries.length === 0 && (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
                     </div>
                   )}
-                />
+                  {entries.length > 0 && (
+                    <AnimatedList
+                      items={entries}
+                      showGradients={true}
+                      enableArrowNavigation={false}
+                      displayScrollbar={true}
+                      renderItem={(entry: WhtEntry) => (
+                        <div
+                          className={`grid items-center gap-2 rounded-lg border px-3 py-2 ${deletingIds.has(entry.id) ? 'del' : ''} ${entry.error ? 'border-red-200 bg-red-50' : 'border-slate-100 bg-slate-50'}`}
+                          style={{ gridTemplateColumns: '1fr auto' }}
+                          title={entry.error || undefined}
+                        >
+                          <div className="min-w-0">
+                            <p className={`truncate text-xs font-semibold ${entry.error ? 'text-red-700' : 'text-slate-800'}`}>{entry.name}</p>
+                            {entry.error ? (
+                              <p className="truncate text-xs text-red-500">{entry.error}</p>
+                            ) : (
+                              <p className="truncate text-xs text-slate-400">{entry.cnicNtn || '—'} · Rs. {formatPkr(entry.tax)}</p>
+                            )}
+                          </div>
+                          <button onClick={() => removeEntry(entry.id)} className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-500">
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+                    />
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -322,9 +454,7 @@ export function Section165Page() {
                   </tr>
                 </thead>
                 <tbody>
-                  {loading ? (
-                    <tr><td colSpan={7} className="py-8 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin text-blue-600" /></td></tr>
-                  ) : entries.length === 0 ? (
+                  {entries.length === 0 ? (
                     <tr><td colSpan={7} className="py-8 text-center text-slate-400">No entries in draft. Add data from the Input Section.</td></tr>
                   ) : (
                     entries.map((entry, idx) => (
@@ -381,12 +511,23 @@ export function Section165Page() {
               <Cloud className="mb-2 h-8 w-8 text-blue-400" />
               <p className="text-xs font-medium text-slate-600">Drag & Drop your files here</p>
               <p className="my-1.5 text-xs text-slate-400">or</p>
-              <label className="cursor-pointer rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-700">
-                Choose Files
-                <input type="file" className="hidden" multiple accept=".pdf,.xlsx,.xlsm" onChange={e => { handleUploadMultiple(e.target.files); e.target.value = '' }} />
+              <label className="cursor-pointer rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
+                {loading ? 'Uploading...' : 'Choose Files'}
+                <input ref={processInputRef} type="file" className="hidden" multiple accept=".pdf,.xlsx,.xlsm" disabled={loading} onChange={e => { handleUploadMultiple(e.target.files); e.target.value = '' }} />
               </label>
-              <p className="mt-1.5 text-xs text-slate-400">Supports: .pdf, .xlsx, .xlsm (multiple)</p>
+              <p className="mt-1.5 text-xs text-slate-400">Supports: .pdf, .xlsx, .xlsm (multiple, max {MAX_FILE_SIZE_MB}MB each)</p>
             </div>
+
+            {processingFiles.length > 0 && (
+              <div className="mb-4 space-y-1.5">
+                {processingFiles.map(fileName => (
+                  <div key={fileName} className="flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+                    <span className="truncate text-xs text-blue-700">{fileName}</span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Process Button */}
             <button
@@ -398,7 +539,10 @@ export function Section165Page() {
             </button>
 
             {/* Already Have a Sheet */}
-            <div className="mb-4 rounded-lg border border-slate-100 bg-slate-50 p-3">
+            <button
+              onClick={() => setShowAppendModal(true)}
+              className="mb-4 w-full rounded-lg border border-slate-100 bg-slate-50 p-3 text-left hover:bg-slate-100"
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-semibold text-slate-700">Already Have a Sheet?</p>
@@ -406,7 +550,7 @@ export function Section165Page() {
                 </div>
                 <ChevronRight className="h-4 w-4 text-slate-400" />
               </div>
-            </div>
+            </button>
 
             {/* System Status */}
             <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
@@ -490,6 +634,80 @@ export function Section165Page() {
                 </tbody>
               </table>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Append Modal */}
+      {showAppendModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="max-h-[80vh] w-full max-w-2xl overflow-auto rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-slate-900">Append to Existing Sheet</h2>
+              <button onClick={() => { setShowAppendModal(false); setExistingFile(null); setExistingEntries([]) }} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" /></button>
+            </div>
+
+            <p className="mb-4 text-sm text-slate-500">Upload an existing .xlsm statement, then merge new entries into it.</p>
+
+            {/* Upload existing file */}
+            <div className="mb-4 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+              <Upload className="mb-2 h-8 w-8 text-slate-300" />
+              <p className="text-xs text-slate-500">Upload existing .xlsm or .xlsx file</p>
+              <p className="my-1.5 text-xs text-slate-400">or</p>
+              <label className="cursor-pointer rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
+                {appendLoading ? 'Reading...' : 'Choose File'}
+                <input ref={appendInputRef} type="file" className="hidden" accept=".xlsm,.xlsx" disabled={appendLoading} onChange={handleAppendExisting} />
+              </label>
+            </div>
+
+            {/* Existing entries */}
+            {existingEntries.length > 0 && (
+              <div className="mb-4">
+                <h3 className="mb-2 text-sm font-bold text-slate-700">Existing Entries ({existingEntries.length})</h3>
+                <div className="max-h-40 overflow-y-auto rounded-lg border border-slate-200">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50">
+                      <tr className="text-slate-500">
+                        <th className="px-2 py-1 font-semibold">Name</th>
+                        <th className="px-2 py-1 font-semibold">CNIC/NTN</th>
+                        <th className="px-2 py-1 font-semibold text-right">Tax</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {existingEntries.map((e) => (
+                        <tr key={e.id} className="border-t border-slate-100">
+                          <td className="px-2 py-1 text-slate-700">{e.name}</td>
+                          <td className="px-2 py-1 text-slate-500">{e.cnicNtn || '—'}</td>
+                          <td className="px-2 py-1 text-right text-slate-600">Rs. {formatPkr(e.tax)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Merge info */}
+            <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 p-3">
+              <div className="flex items-center gap-2 text-sm">
+                <Merge className="h-4 w-4 text-blue-600" />
+                <span className="text-blue-700">
+                  {entries.length > 0
+                    ? `${entries.length} new entr${entries.length > 1 ? 'ies' : 'y'} will be appended after existing ${existingEntries.length > 0 ? existingEntries.length : '...'}`
+                    : 'Add entries from Step 1 first, then merge them into an existing file.'}
+                </span>
+              </div>
+            </div>
+
+            {/* Merge button */}
+            <button
+              onClick={handleMergeAndDownload}
+              disabled={!existingFile || entries.length === 0 || appendLoading}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {appendLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {appendLoading ? 'Merging...' : 'Merge & Download'}
+            </button>
           </div>
         </div>
       )}

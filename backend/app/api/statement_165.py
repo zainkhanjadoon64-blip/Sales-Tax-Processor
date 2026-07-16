@@ -285,7 +285,7 @@ def save_statement_165_entries(
         )
         db.add(entry)
 
-    file_name = body.fileName or f"165_Statement_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    file_name = body.fileName or f"165_Statement_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.xlsm"
 
     sess = Statement165Session(
         user_id=current_user.id,
@@ -396,21 +396,9 @@ def upload_statement_file(
             return {"success": True, "entries": entries, "source": "excel", "count": len(entries), "errors": []}
 
         if ext == "pdf":
-            from app.services.statement_165_service import extract_pdf_data, normalize_record
-            import asyncio
+            from app.services.super_parser import parse_pdf
 
-            try:
-                loop = asyncio.new_event_loop()
-                result = loop.run_until_complete(extract_pdf_data(file_bytes))
-                loop.close()
-            except Exception as e:
-                return {
-                    "success": True,
-                    "entries": [],
-                    "source": "pdf",
-                    "count": 0,
-                    "errors": [{"file": file.filename, "error": f"PDF parse error: {e}"}],
-                }
+            result = parse_pdf(file_bytes)
 
             if not result.get("success"):
                 return {
@@ -421,18 +409,18 @@ def upload_statement_file(
                     "errors": [{"file": file.filename, "error": result.get("error", "Could not extract data from this PDF. The format may not be supported.")}],
                 }
 
-            entries = []
-            for r in result.get("entries", []):
-                norm = normalize_record(r)
-                entries.append({
+            entries = [
+                {
                     "id": uuid.uuid4().hex[:12],
-                    "name": norm.get("name", ""),
-                    "cnicNtn": norm.get("registration_no", ""),
-                    "date": result.get("generation_date", "") or norm.get("transaction_date", ""),
-                    "code": norm.get("payment_code", ""),
-                    "taxable": norm.get("taxable_amount", 0),
-                    "tax": norm.get("tax_amount", 0),
-                })
+                    "name": e.get("name", ""),
+                    "cnicNtn": e.get("cnicNtn", ""),
+                    "date": e.get("date", ""),
+                    "code": e.get("code", ""),
+                    "taxable": e.get("taxable", 0),
+                    "tax": e.get("tax", 0),
+                }
+                for e in result.get("entries", [])
+            ]
             return {"success": True, "entries": entries, "source": "pdf", "count": len(entries), "errors": []}
 
     except Exception as e:
@@ -465,7 +453,7 @@ def process_statement(
     excel_bytes = build_statement_workbook(records)
 
     from starlette.responses import Response
-    file_name = body.fileName or f"165_Statement_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    file_name = body.fileName or f"165_Statement_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.xlsm"
 
     # Save session
     session_id = f"stmt_{uuid.uuid4().hex[:12]}"
@@ -502,7 +490,7 @@ def process_statement(
 
     return Response(
         content=excel_bytes,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        media_type="application/vnd.ms-excel.sheet.macroEnabled.12",
         headers={
             "Content-Disposition": f'attachment; filename="{file_name}"',
             "X-Session-Id": session_id,
@@ -543,12 +531,12 @@ def export_statement(
 
     excel_bytes = build_statement_workbook(records)
     sess = db.query(Statement165Session).filter(Statement165Session.session_id == session_id).first()
-    file_name = sess.file_name if sess else f"165_Statement_{session_id}.xlsx"
+    file_name = sess.file_name if sess else f"165_Statement_{session_id}.xlsm"
 
     from starlette.responses import Response
     return Response(
         content=excel_bytes,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        media_type="application/vnd.ms-excel.sheet.macroEnabled.12",
         headers={"Content-Disposition": f'attachment; filename="{file_name}"'},
     )
 
@@ -563,6 +551,132 @@ def download_statement_165(
     current_user: User = Depends(get_current_active_user),
 ):
     return export_statement(session_id, db, current_user)
+
+
+# ── Upload Existing Statement (extract entries) ────────────────────────────────
+
+
+@router.post("/statement-165/upload-existing")
+def upload_existing_statement(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Upload an existing .xlsm/.xlsx statement and return all entries."""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided")
+
+    ext = file.filename.lower().split(".")[-1] if "." in file.filename else ""
+    if ext not in ("xlsx", "xlsm", "xls"):
+        raise HTTPException(status_code=400, detail="Invalid format. Upload .xlsm, .xlsx, or .xls")
+
+    file_bytes = file.file.read()
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="Empty file")
+
+    from app.services.statement_165_service import read_existing_statement
+
+    records = read_existing_statement(file_bytes)
+    entries = [
+        {
+            "id": uuid.uuid4().hex[:12],
+            "name": r.get("name", ""),
+            "cnicNtn": r.get("registration_no", ""),
+            "date": r.get("transaction_date", ""),
+            "code": r.get("payment_code", ""),
+            "taxable": r.get("taxable_amount", 0),
+            "tax": r.get("tax_amount", 0),
+        }
+        for r in records
+    ]
+
+    return {
+        "success": True,
+        "entries": entries,
+        "count": len(entries),
+    }
+
+
+# ── Upload Abbottabad Excel (10-column format) ─────────────────────────────────
+
+
+@router.post("/statement-165/upload-excel")
+def upload_abbottabad_excel(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Upload Abbottabad-format Excel (10-column) and extract entries."""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided")
+
+    ext = file.filename.lower().split(".")[-1] if "." in file.filename else ""
+    if ext not in ("xlsx", "xlsm", "xls"):
+        raise HTTPException(status_code=400, detail="Invalid format. Upload .xlsx, .xlsm, or .xls")
+
+    file_bytes = file.file.read()
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="Empty file")
+
+    from app.services.statement_165_service import read_abbottabad_excel
+
+    records = read_abbottabad_excel(file_bytes)
+    entries = [
+        {
+            "id": uuid.uuid4().hex[:12],
+            "name": r.get("business_name", ""),
+            "cnicNtn": r.get("ntn_cnic", ""),
+            "date": r.get("generation_date", ""),
+            "code": r.get("payment_code", ""),
+            "taxable": r.get("amount", 0),
+            "tax": r.get("tax_amount", 0),
+        }
+        for r in records
+    ]
+
+    return {"success": True, "entries": entries, "count": len(entries)}
+
+
+# ── Append to Existing Statement ───────────────────────────────────────────────
+
+
+class AppendRequest(BaseModel):
+    entries: list[WhtEntryIn]
+    fileName: Optional[str] = None
+
+
+@router.post("/statement-165/append-to-existing")
+def append_to_existing_statement_endpoint(
+    file: UploadFile = File(...),
+    body: str = Form(...),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Append new records to an existing statement .xlsm file."""
+    import json
+
+    data = json.loads(body)
+    append_req = AppendRequest(**data)
+
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided")
+    if not append_req.entries:
+        raise HTTPException(status_code=400, detail="No entries to append")
+
+    file_bytes = file.file.read()
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="Empty file")
+
+    from app.services.statement_165_service import append_to_existing_statement, normalize_record
+
+    records = [normalize_record(e.model_dump()) for e in append_req.entries]
+    excel_bytes = append_to_existing_statement(file_bytes, records)
+
+    file_name = append_req.fileName or f"165_Statement_Updated_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.xlsm"
+
+    from starlette.responses import Response
+    return Response(
+        content=excel_bytes,
+        media_type="application/vnd.ms-excel.sheet.macroEnabled.12",
+        headers={"Content-Disposition": f'attachment; filename="{file_name}"'},
+    )
 
 
 # ── Heartbeat ──────────────────────────────────────────────────────────────────

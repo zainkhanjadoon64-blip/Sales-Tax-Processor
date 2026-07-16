@@ -15,14 +15,6 @@ from app.models.user import User
 router = APIRouter()
 
 
-def _build_record_remarks(base_remarks: Optional[str], extract) -> str:
-    parts = []
-    if base_remarks:
-        parts.append(base_remarks)
-    if getattr(extract, "payment_section_code", None):
-        parts.append(f"Payment Section Code: {extract.payment_section_code}")
-    return "\n".join(part for part in parts if part)
-
 
 class WithholdingRecordCreate(BaseModel):
     client_id: UUID
@@ -320,7 +312,7 @@ def import_withholding_challan(
     Import a withholding challan PDF (236H or 153).
     Parses the PDF, matches/creates client, saves file and creates records.
     """
-    from app.services.challan_parser import parse_challan_pdf
+    from app.services.super_parser import parse_pdf
     from app.services.client_resolver import resolve_client
     from app.services.file_storage import (
         resolve_withholding_folder,
@@ -339,21 +331,46 @@ def import_withholding_challan(
     
     warnings = []
     
-    # Parse the challan PDF
-    try:
-        extract = parse_challan_pdf(file_bytes, section_hint=section_hint)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    # Parse the challan PDF using super parser
+    result = parse_pdf(file_bytes)
+    if not result.get("success") or result.get("format") != "challan":
+        raise HTTPException(status_code=400, detail="Could not parse challan PDF")
     
-    if not extract.client_name:
+    meta = result.get("metadata", {})
+    entries = result.get("entries", [])
+    if not entries:
+        raise HTTPException(status_code=400, detail="No entries found in challan")
+    
+    entry = entries[0]
+    client_name = entry.get("name", "")
+    if not client_name:
         raise HTTPException(status_code=400, detail="Could not extract client name from challan PDF")
+    
+    ntn_str = entry.get("cnicNtn", "")
+    is_ntn = bool(re.match(r"^\d{7}-\d$", str(ntn_str)))
+    ntn = ntn_str if is_ntn else None
+    cnic = ntn_str if re.match(r"^\d{13}$", str(ntn_str)) else None
+    
+    section = "153" if "153" in meta.get("section", "") else "236H"
+    period = meta.get("period", "")
+    challan_number = meta.get("challan_number", "")
+    amount = Decimal(str(meta.get("total_amount", 0) or 0))
+    payment_section_code = meta.get("payment_section_code", "")
+    
+    payment_date_str = meta.get("payment_date", "")
+    payment_date = None
+    if payment_date_str:
+        try:
+            payment_date = datetime.strptime(str(payment_date_str), "%Y-%m-%d").date()
+        except ValueError:
+            pass
     
     # Resolve or create client
     client, client_created, _ = resolve_client(
         db=db,
-        ntn=extract.ntn,
-        client_name=extract.client_name,
-        cnic=extract.cnic,
+        ntn=ntn,
+        client_name=client_name,
+        cnic=cnic,
     )
     
     # Ensure withholding_registered True
@@ -361,13 +378,8 @@ def import_withholding_challan(
         client.withholding_registered = True
         db.flush()
     
-    # Determine section/category
-    section = extract.section_type
-    
     # Determine period for filename (fallback to current month)
-    period = extract.period
     if not period:
-        from datetime import datetime
         period = datetime.now().strftime("%Y-%m")
         warnings.append("Tax period not found in PDF, using current month")
     
@@ -385,7 +397,7 @@ def import_withholding_challan(
     # Save file with versioning
     saved_path, saved_filename = save_file_with_versioning(folder, filename, file_bytes)
     
-    # Create Document record (matches Document model schema)
+    # Create Document record
     document = Document(
         client_id=client.id,
         original_file_name=file.filename or saved_filename,
@@ -399,34 +411,37 @@ def import_withholding_challan(
     db.add(document)
     db.flush()
     
-    # Upsert WithholdingRecord (match by client_id + section_type + period + challan_number)
+    # Build remarks
+    remarks_parts = ["Imported from challan"]
+    if payment_section_code:
+        remarks_parts.append(f"Payment Section Code: {payment_section_code}")
+    
+    # Upsert WithholdingRecord
     existing = db.query(WithholdingRecord).filter(
         WithholdingRecord.client_id == client.id,
         WithholdingRecord.section_type == section,
         WithholdingRecord.period == period,
-        WithholdingRecord.challan_number == (extract.challan_number or None),
+        WithholdingRecord.challan_number == (challan_number or None),
     ).first()
     
     if existing:
-        # Update existing record
-        existing.amount = extract.amount or existing.amount
-        existing.payment_date = extract.payment_date or existing.payment_date
+        existing.amount = amount or existing.amount
+        existing.payment_date = payment_date or existing.payment_date
         existing.document_id = document.id
-        existing.remarks = _build_record_remarks("Imported from challan (updated)", extract)
+        existing.remarks = "\n".join(remarks_parts) + " (updated)"
         db.flush()
         record = existing
         warnings.append(f"Updated existing withholding record (ID: {record.id})")
     else:
-        # Create new record
         record = WithholdingRecord(
             client_id=client.id,
-            section_type=section,  # type: ignore
+            section_type=section,
             period=period,
-            challan_number=extract.challan_number,
-            amount=extract.amount or Decimal("0"),
-            payment_date=extract.payment_date,
+            challan_number=challan_number,
+            amount=amount or Decimal("0"),
+            payment_date=payment_date,
             document_id=document.id,
-            remarks=_build_record_remarks("Imported from challan", extract),
+            remarks="\n".join(remarks_parts),
         )
         db.add(record)
         db.flush()
@@ -671,7 +686,7 @@ def import_withholding_challan_bulk(
             if not file_bytes:
                 continue
 
-            from app.services.challan_parser import parse_challan_pdf
+            from app.services.super_parser import parse_pdf
             from app.services.client_resolver import resolve_client
             from app.services.file_storage import (
                 resolve_withholding_folder,
@@ -679,29 +694,50 @@ def import_withholding_challan_bulk(
                 save_file_with_versioning,
             )
 
-            # Parse the challan PDF
-            try:
-                extract = parse_challan_pdf(file_bytes, section_hint=section_hint)
-            except ValueError:
+            result = parse_pdf(file_bytes)
+            if not result.get("success") or result.get("format") != "challan":
                 continue
 
-            if not extract.client_name:
+            meta = result.get("metadata", {})
+            entries = result.get("entries", [])
+            if not entries:
                 continue
+
+            entry = entries[0]
+            client_name = entry.get("name", "")
+            if not client_name:
+                continue
+
+            ntn_str = entry.get("cnicNtn", "")
+            is_ntn = bool(re.match(r"^\d{7}-\d$", str(ntn_str)))
+            ntn = ntn_str if is_ntn else None
+            cnic = ntn_str if re.match(r"^\d{13}$", str(ntn_str)) else None
+
+            section = "153" if "153" in meta.get("section", "") else "236H"
+            period = meta.get("period", "")
+            challan_number = meta.get("challan_number", "")
+            amount = Decimal(str(meta.get("total_amount", 0) or 0))
+
+            payment_date_str = meta.get("payment_date", "")
+            payment_date = None
+            if payment_date_str:
+                try:
+                    payment_date = datetime.strptime(str(payment_date_str), "%Y-%m-%d").date()
+                except ValueError:
+                    pass
 
             # Resolve or create client
             client, client_created, _ = resolve_client(
                 db=db,
-                ntn=extract.ntn,
-                client_name=extract.client_name,
-                cnic=extract.cnic,
+                ntn=ntn,
+                client_name=client_name,
+                cnic=cnic,
             )
 
             if not client.withholding_registered:
                 client.withholding_registered = True
                 db.flush()
 
-            section = extract.section_type
-            period = extract.period
             if not period:
                 period = datetime.now().strftime("%Y-%m")
 
@@ -734,15 +770,19 @@ def import_withholding_challan_bulk(
                 WithholdingRecord.client_id == client.id,
                 WithholdingRecord.section_type == section,
                 WithholdingRecord.period == period,
-                WithholdingRecord.challan_number == (extract.challan_number or None),
+                WithholdingRecord.challan_number == (challan_number or None),
             ).first()
 
             warnings = []
+            remarks_parts = ["Imported from challan"]
+            if meta.get("payment_section_code"):
+                remarks_parts.append(f"Payment Section Code: {meta['payment_section_code']}")
+
             if existing:
-                existing.amount = extract.amount or existing.amount
-                existing.payment_date = extract.payment_date or existing.payment_date
+                existing.amount = amount or existing.amount
+                existing.payment_date = payment_date or existing.payment_date
                 existing.document_id = document.id
-                existing.remarks = _build_record_remarks("Imported from challan (updated)", extract)
+                existing.remarks = "\n".join(remarks_parts) + " (updated)"
                 db.flush()
                 record = existing
                 warnings.append(f"Updated existing record")
@@ -751,11 +791,11 @@ def import_withholding_challan_bulk(
                     client_id=client.id,
                     section_type=section,
                     period=period,
-                    challan_number=extract.challan_number,
-                    amount=extract.amount or Decimal("0"),
-                    payment_date=extract.payment_date,
+                    challan_number=challan_number,
+                    amount=amount or Decimal("0"),
+                    payment_date=payment_date,
                     document_id=document.id,
-                    remarks=_build_record_remarks("Imported from challan", extract),
+                    remarks="\n".join(remarks_parts),
                 )
                 db.add(record)
                 db.flush()
@@ -805,49 +845,61 @@ def preview_withholding_import(
     lower = file.filename.lower()
     
     if lower.endswith(".pdf"):
-        # Try challan parser first
-        from app.services.challan_parser import parse_challan_pdf
-        try:
-            extract = parse_challan_pdf(file_bytes, section_hint=section_hint)
+        from app.services.super_parser import parse_pdf
+        result = parse_pdf(file_bytes)
+
+        if not result.get("success"):
+            return {
+                "success": True,
+                "detected_type": "unknown",
+                "fields": result.get("metadata", {}),
+                "errors": result.get("errors", ["Could not parse PDF"]),
+            }
+
+        fmt = result.get("format", "unknown")
+
+        if fmt == "challan":
+            meta = result.get("metadata", {})
+            entries = result.get("entries", [])
+            entry = entries[0] if entries else {}
             return {
                 "success": True,
                 "detected_type": "challan",
                 "fields": {
-                    "section_type": extract.section_type,
-                    "client_name": extract.client_name,
-                    "ntn": extract.ntn,
-                    "cnic": extract.cnic,
-                    "period": extract.period,
-                    "challan_number": extract.challan_number,
-                    "amount": str(extract.amount) if extract.amount else None,
-                    "payment_date": str(extract.payment_date) if extract.payment_date else None,
-                    "payment_section_code": extract.payment_section_code,
+                    "section_type": "153" if "153" in meta.get("section", "") else "236H",
+                    "client_name": entry.get("name", ""),
+                    "ntn": entry.get("cnicNtn", ""),
+                    "cnic": "",
+                    "period": meta.get("period", ""),
+                    "challan_number": meta.get("challan_number", ""),
+                    "amount": str(meta.get("total_amount", 0)) if meta.get("total_amount") else None,
+                    "payment_date": meta.get("payment_date", "") or None,
+                    "payment_section_code": meta.get("payment_section_code", ""),
                 },
-                "confidence": extract.confidence,
+                "confidence": {},
             }
-        except ValueError:
-            # Try statement parser
-            from app.services.statement_parser import parse_statement_pdf
-            result = parse_statement_pdf(file_bytes, file.filename)
+        else:
+            entries = result.get("entries", [])
             rows_data = []
-            for row in result.rows:
+            meta = result.get("metadata", {})
+            for e in entries:
                 rows_data.append({
-                    "line_number": row.line_number,
-                    "ntn": row.ntn,
-                    "client_name": row.client_name,
-                    "section_type": row.section_type,
-                    "period": row.period,
-                    "challan_number": row.challan_number,
-                    "amount": str(row.amount) if row.amount else None,
-                    "warnings": row.warnings,
+                    "line_number": "",
+                    "ntn": e.get("cnicNtn", ""),
+                    "client_name": e.get("name", ""),
+                    "section_type": meta.get("section", ""),
+                    "period": meta.get("period", ""),
+                    "challan_number": meta.get("challan_number", ""),
+                    "amount": str(e.get("taxable", 0)) if e.get("taxable") else None,
+                    "warnings": [],
                 })
             return {
                 "success": True,
                 "detected_type": "statement",
                 "rows": rows_data,
-                "total_rows": result.total_rows,
-                "parsed_rows": result.parsed_rows,
-                "errors": result.errors,
+                "total_rows": len(entries),
+                "parsed_rows": len(entries),
+                "errors": [],
             }
     elif lower.endswith((".xlsx", ".xls")):
         from app.services.statement_parser import parse_statement_excel

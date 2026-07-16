@@ -111,6 +111,32 @@ export async function ping(): Promise<{ success: boolean }> {
   return apiClient.get('/withholding/statement-165/ping')
 }
 
+export async function uploadAbbottabadExcel(
+  file: File,
+): Promise<{ success: boolean; entries: WhtEntry[]; count: number }> {
+  const formData = new FormData()
+  formData.append('file', file)
+  return apiClient.upload('/withholding/statement-165/upload-excel', formData)
+}
+
+export async function uploadExistingStatement(
+  file: File,
+): Promise<{ success: boolean; entries: WhtEntry[]; count: number }> {
+  const formData = new FormData()
+  formData.append('file', file)
+  return apiClient.upload('/withholding/statement-165/upload-existing', formData)
+}
+
+export async function appendToExistingStatement(
+  file: File,
+  entries: WhtEntry[],
+): Promise<Blob> {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('body', JSON.stringify({ entries }))
+  return apiClient.upload('/withholding/statement-165/append-to-existing', formData, { responseType: 'blob' })
+}
+
 export function getDownloadUrl(sessionId: string): string {
   return `/api/v1/withholding/statement-165/download/${sessionId}`
 }

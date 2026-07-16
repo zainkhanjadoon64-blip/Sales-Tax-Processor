@@ -5,14 +5,20 @@ Handles PDF extraction, Excel building/reading, and record normalization.
 Ported from the Next.js withholding-tax-statement project.
 """
 import io
+import os
 import re
+import shutil
+import tempfile
 import uuid
 from datetime import datetime
 from typing import Any
 
 import openpyxl
+
+
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+
 
 # ── PDF Extraction ────────────────────────────────────────────────────────────
 
@@ -238,9 +244,9 @@ def format_ntn_cnic_for_storage(value: str | None) -> str:
     if "-" in value:
         parts = value.split("-")
         if len(parts) == 3:
-            return "".join(parts)  # CNIC
+            return "".join(parts)  # CNIC: 13101-12184639-1 → 13101121846391
         if len(parts) == 2:
-            return parts[0]  # NTN
+            return parts[0]  # NTN: 0711631-4 → 0711631 (dash + check digit hatao)
     return value
 
 
@@ -248,110 +254,137 @@ def make_session_id() -> str:
     return f"stmt_{int(datetime.utcnow().timestamp() * 1000)}_{uuid.uuid4().hex[:6]}"
 
 
-# ── Excel Building ────────────────────────────────────────────────────────────
+# ── Excel Building (official FBR .xlsm template) ──────────────────────────────
 
 
-TEMPLATE_HEADERS = [
-    "REGISTRATION NO",
-    "IDENTIFICATION NO",
-    "NAME",
-    "TRANSACTION DATE",
-    "CODE",
-    "AMOUNT",
-    "EXEMPTION CODE",
-    "TAX COLLECTIBLE/DEDUCTIBLE",
-]
+# Project root: services -> app -> backend -> project root
+_PROJECT_ROOT = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
+TEMPLATE_PATH = os.path.join(
+    _PROJECT_ROOT,
+    "Section 165 Statement Template",
+    "Withholding_Tax_Statement.xlsm",
+)
+TEMPLATE_SHEET = "Withholding Data"
+DATA_START_ROW = 4  # headers are on row 3; data begins on row 4
+VALIDATE_MACRO = "validateWFData"
+
+
+def _write_records_to_sheet(ws, records: list[dict]) -> None:
+    """Write normalized records into the template sheet starting at row 4 using openpyxl."""
+    TEXT_FORMAT = "@"
+    for idx, r in enumerate(records):
+        row = DATA_START_ROW + idx
+        c1 = ws.cell(row=row, column=1, value=str(r.get("registration_no", "") or ""))
+        c1.number_format = TEXT_FORMAT
+        c2 = ws.cell(row=row, column=2, value=str(r.get("identification_no", "") or ""))
+        c2.number_format = TEXT_FORMAT
+        c3 = ws.cell(row=row, column=3, value=str(r.get("name", "") or ""))
+        c3.number_format = TEXT_FORMAT
+        c4 = ws.cell(row=row, column=4, value=str(r.get("transaction_date", "") or ""))
+        c4.number_format = TEXT_FORMAT
+        c5 = ws.cell(row=row, column=5, value=str(r.get("payment_code", "") or "").strip())
+        c5.number_format = TEXT_FORMAT
+        ws.cell(row=row, column=6, value=r.get("taxable_amount", 0) or 0)
+        c7 = ws.cell(row=row, column=7, value=str(r.get("exemption_code", "") or ""))
+        c7.number_format = TEXT_FORMAT
+        ws.cell(row=row, column=8, value=r.get("tax_amount", 0) or 0)
+
+
+def _build_via_com(records: list[dict]) -> bytes:
+    """Deprecated — use build_statement_workbook instead."""
+    return build_statement_workbook(records)
 
 
 def build_statement_workbook(records: list[dict]) -> bytes:
-    """Build the FBR Withholding Tax Statement workbook (.xlsx)."""
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Data"
+    """
+    Build a Section 165 statement .xlsm workbook using the official FBR template.
 
-    # Column widths
-    widths = [18, 16, 34, 16, 12, 15, 14, 20]
-    for i, w in enumerate(widths, 1):
-        ws.column_dimensions[get_column_letter(i)].width = w
+    Uses openpyxl to write data (preserves string types), then win32com only
+    to trigger the VBA validation macro. Matches the working pattern from
+    the FBR Tax Processor project.
+    """
+    if not os.path.isfile(TEMPLATE_PATH):
+        raise FileNotFoundError(
+            f"Section 165 template not found at: {TEMPLATE_PATH}. "
+            "Cannot generate .xlsm file without the template."
+        )
 
-    # Title row 1
-    ws.merge_cells("A1:H1")
-    title_cell = ws["A1"]
-    title_cell.value = "WITHHOLDING TAX STATEMENT U/S 165 - INCOME TAX ORDINANCE 2001"
-    title_cell.font = Font(bold=True, size=12, color="1F3B70")
-    title_cell.alignment = Alignment(horizontal="center", vertical="center")
-    ws.row_dimensions[1].height = 22
+    fd, temp_path = tempfile.mkstemp(suffix=".xlsm")
+    os.close(fd)
+    try:
+        shutil.copy(TEMPLATE_PATH, temp_path)
 
-    # Subtitle row 2
-    ws.merge_cells("A2:H2")
-    sub_cell = ws["A2"]
-    sub_cell.value = "Federal Board of Revenue - Pakistan"
-    sub_cell.font = Font(size=10, color="44506B")
-    sub_cell.alignment = Alignment(horizontal="center", vertical="center")
+        # Step 1: Write data with openpyxl (preserves string types, no auto-conversion)
+        wb = openpyxl.load_workbook(temp_path, keep_vba=True)
+        ws = wb[TEMPLATE_SHEET]
+        ws.protection.sheet = False
+        _write_records_to_sheet(ws, records)
+        wb.save(temp_path)
+        wb.close()
 
-    # Header row 3
-    header_fill = PatternFill(start_color="2B4C9B", end_color="2B4C9B", fill_type="solid")
-    header_font = Font(bold=True, size=9, color="FFFFFF")
-    thin_border = Border(
-        left=Side(style="thin"),
-        right=Side(style="thin"),
-        top=Side(style="thin"),
-        bottom=Side(style="thin"),
-    )
-    for i, h in enumerate(TEMPLATE_HEADERS, 1):
-        cell = ws.cell(row=3, column=i, value=h)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        cell.border = thin_border
-    ws.row_dimensions[3].height = 28
+        # Step 2: Use COM only for VBA validation macro
+        import win32com.client
+        import pythoncom
 
-    # Data rows
-    data_border = Border(
-        left=Side(style="thin", color="D5DBE8"),
-        right=Side(style="thin", color="D5DBE8"),
-        top=Side(style="thin", color="D5DBE8"),
-        bottom=Side(style="thin", color="D5DBE8"),
-    )
-    data_font = Font(size=9)
-    for idx, r in enumerate(records, 4):
-        values = [
-            r.get("registration_no", ""),
-            "",  # identification no (always empty)
-            r.get("name", ""),
-            r.get("transaction_date", ""),
-            r.get("payment_code", ""),
-            r.get("taxable_amount", 0),
-            "",  # exemption code (always empty)
-            r.get("tax_amount", 0),
-        ]
-        for i, v in enumerate(values, 1):
-            cell = ws.cell(row=idx, column=i, value=v)
-            cell.font = data_font
-            cell.border = data_border
-            if i in (6, 8):
-                cell.number_format = '#,##0.00'
-                cell.alignment = Alignment(horizontal="right")
+        pythoncom.CoInitialize()
+        excel = None
+        xl_wb = None
+        try:
+            excel = win32com.client.DispatchEx("Excel.Application")
+            excel.Visible = False
+            excel.DisplayAlerts = False
+            excel.ScreenUpdating = False
 
-    # Totals row
-    if records:
-        total_row = 4 + len(records)
-        ws.cell(row=total_row, column=3, value="TOTAL").font = Font(bold=True, size=9)
-        total_taxable = sum(r.get("taxable_amount", 0) for r in records)
-        total_tax = sum(r.get("tax_amount", 0) for r in records)
-        for c, val in [(6, total_taxable), (8, total_tax)]:
-            cell = ws.cell(row=total_row, column=c, value=val)
-            cell.font = Font(bold=True, size=9)
-            cell.number_format = '#,##0.00'
-            cell.alignment = Alignment(horizontal="right")
+            xl_wb = excel.Workbooks.Open(os.path.abspath(temp_path))
+            ws = xl_wb.Sheets(TEMPLATE_SHEET)
 
-    buf = io.BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-    return buf.getvalue()
+            excel.Application.Run(VALIDATE_MACRO)
+
+            VBA_PASS = "FBRpralIRIS15"
+            ws.Unprotect(VBA_PASS)
+            last_data_row = DATA_START_ROW + len(records) - 1 if records else DATA_START_ROW
+            for r in range(DATA_START_ROW, last_data_row + 1):
+                for c in range(1, 10):
+                    ws.Cells(r, c).Locked = False
+            ws.Protect(VBA_PASS)
+
+            xl_wb.Save()
+            xl_wb.Close(False)
+            xl_wb = None
+            excel.Quit()
+            excel = None
+        finally:
+            if xl_wb is not None:
+                try: xl_wb.Close(False)
+                except: pass
+            if excel is not None:
+                try: excel.Quit()
+                except: pass
+            try: pythoncom.CoUninitialize()
+            except: pass
+
+        with open(temp_path, "rb") as f:
+            return f.read()
+    finally:
+        try: os.unlink(temp_path)
+        except: pass
+
 
 
 # ── Existing Statement Reading ────────────────────────────────────────────────
+
+
+def _clean_name(raw: str) -> str:
+    name = raw.strip()
+    # Remove trailing address artifacts: Plot/House/Street followed by number or text
+    name = re.sub(r",?\s*(?:Plot|House|Street|St\.?|Shop|Office|Room|Suit)\s*(?:#|No\.?|Number)?\s*\d*[\s,]*.*$", "", name, flags=re.I)
+    # Remove standalone bare "Plot Number" or "Plot No" at end (no specific number)
+    name = re.sub(r"\s+Plot\s+(?:Number|No\.?)\s*$", "", name, flags=re.I)
+    # Remove trailing standalone city names at end
+    name = re.sub(r"\s+(LAHORE|KARACHI|ISLAMABAD|RAWALPINDI|ABBOTTABAD|FAISALABAD|MULTAN|GUJRANWALA|PESHAWAR|QUETTA|HYDERABAD|SIALKOT|BAHAWALPUR|SUKKUR|LARKANA)\s*$", "", name, flags=re.I)
+    return name.strip()
 
 
 def read_existing_statement(buffer: bytes) -> list[dict]:
@@ -361,7 +394,7 @@ def read_existing_statement(buffer: bytes) -> list[dict]:
     records: list[dict] = []
     for row in ws.iter_rows(min_row=4, values_only=True):
         reg_no = str(row[0] or "").strip()
-        name = str(row[2] or "").strip()
+        name = _clean_name(str(row[2] or "").strip())
         if not reg_no and not name:
             continue
         if name.upper() == "TOTAL":
@@ -413,9 +446,10 @@ def read_abbottabad_excel(buffer: bytes) -> list[dict]:
 
 
 def normalize_record(r: dict) -> dict:
-    """Normalize a frontend record (with aliases) into the 8-column shape."""
+    """Normalize a frontend/API record (with aliases) into the 8-column template shape."""
     raw_id = (
         str(r.get("ntn_cnic") or "").strip()
+        or str(r.get("cnicNtn") or "").strip()  # frontend camelCase
         or str(r.get("cnic") or "").strip()
         or str(r.get("registration_no") or "").strip()
     )
@@ -423,18 +457,114 @@ def normalize_record(r: dict) -> dict:
         str(r.get("generation_date") or "").strip()
         or str(r.get("date") or "").strip()
         or str(r.get("transaction_date") or "").strip()
-        or datetime.utcnow().strftime("%Y-%m-%d")
+        or datetime.utcnow().strftime("%d/%m/%Y")
     )
+    payment_code = (
+        str(r.get("paymentCode") or "").strip()
+        or str(r.get("payment_code") or "").strip()
+        or str(r.get("code") or "").strip()  # frontend field
+    )
+    taxable = r.get("taxableAmount", r.get("amount", r.get("taxable_amount", r.get("taxable", 0))))
+    tax = r.get("taxAmount", r.get("tax_amount", r.get("tax", 0)))
     return {
         "registration_no": format_ntn_cnic_for_storage(raw_id),
         "identification_no": "",
         "name": str(r.get("business_name") or r.get("name") or "").strip(),
         "transaction_date": date_val,
-        "payment_code": str(r.get("paymentCode") or r.get("payment_code") or "").strip(),
-        "taxable_amount": _parse_amount(r.get("taxableAmount", r.get("amount", r.get("taxable_amount", 0)))),
+        "payment_code": payment_code,
+        "taxable_amount": _parse_amount(taxable),
         "exemption_code": "",
-        "tax_amount": _parse_amount(r.get("taxAmount", r.get("tax_amount", 0))),
+        "tax_amount": _parse_amount(tax),
     }
+
+
+
+def append_to_existing_statement(existing_bytes: bytes, new_records: list[dict]) -> bytes:
+    """Append new records to an existing statement .xlsm file.
+
+    Reads the existing file, finds the last data row (>= row 4),
+    appends normalized records below, saves, then runs VBA macro.
+    Returns the complete .xlsm bytes.
+    """
+    fd, temp_path = tempfile.mkstemp(suffix=".xlsm")
+    os.close(fd)
+    try:
+        with open(temp_path, "wb") as f:
+            f.write(existing_bytes)
+
+        wb = openpyxl.load_workbook(temp_path, keep_vba=True)
+        ws = wb[TEMPLATE_SHEET]
+        ws.protection.sheet = False
+
+        last_row = DATA_START_ROW - 1
+        for row in range(DATA_START_ROW, ws.max_row + 1):
+            val = ws.cell(row=row, column=1).value
+            if val is not None and str(val).strip():
+                last_row = row
+        start_row = last_row + 1
+
+        TEXT_FORMAT = "@"
+        for idx, r in enumerate(new_records):
+            row = start_row + idx
+            c1 = ws.cell(row=row, column=1, value=str(r.get("registration_no", "") or ""))
+            c1.number_format = TEXT_FORMAT
+            c2 = ws.cell(row=row, column=2, value=str(r.get("identification_no", "") or ""))
+            c2.number_format = TEXT_FORMAT
+            c3 = ws.cell(row=row, column=3, value=str(r.get("name", "") or ""))
+            c3.number_format = TEXT_FORMAT
+            c4 = ws.cell(row=row, column=4, value=str(r.get("transaction_date", "") or ""))
+            c4.number_format = TEXT_FORMAT
+            c5 = ws.cell(row=row, column=5, value=str(r.get("payment_code", "") or "").strip())
+            c5.number_format = TEXT_FORMAT
+            ws.cell(row=row, column=6, value=r.get("taxable_amount", 0) or 0)
+            c7 = ws.cell(row=row, column=7, value=str(r.get("exemption_code", "") or ""))
+            c7.number_format = TEXT_FORMAT
+            ws.cell(row=row, column=8, value=r.get("tax_amount", 0) or 0)
+
+        wb.save(temp_path)
+        wb.close()
+
+        import win32com.client
+        import pythoncom
+        pythoncom.CoInitialize()
+        excel = None
+        xl_wb = None
+        try:
+            excel = win32com.client.DispatchEx("Excel.Application")
+            excel.Visible = False
+            excel.DisplayAlerts = False
+            excel.ScreenUpdating = False
+            xl_wb = excel.Workbooks.Open(os.path.abspath(temp_path))
+            ws = xl_wb.Sheets(TEMPLATE_SHEET)
+            excel.Application.Run(VALIDATE_MACRO)
+            VBA_PASS = "FBRpralIRIS15"
+            ws.Unprotect(VBA_PASS)
+            last_new_row = start_row + len(new_records) - 1 if new_records else last_row
+            end_row = max(last_row, last_new_row) if new_records else last_row
+            for r in range(DATA_START_ROW, end_row + 1):
+                for c in range(1, 10):
+                    ws.Cells(r, c).Locked = False
+            ws.Protect(VBA_PASS)
+            xl_wb.Save()
+            xl_wb.Close(False)
+            xl_wb = None
+            excel.Quit()
+            excel = None
+        finally:
+            if xl_wb is not None:
+                try: xl_wb.Close(False)
+                except: pass
+            if excel is not None:
+                try: excel.Quit()
+                except: pass
+            try: pythoncom.CoUninitialize()
+            except: pass
+
+        with open(temp_path, "rb") as f:
+            return f.read()
+    finally:
+        try: os.unlink(temp_path)
+        except: pass
 
 
 def _parse_float(v: Any) -> float:
