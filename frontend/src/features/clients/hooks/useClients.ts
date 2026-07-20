@@ -39,7 +39,7 @@ export function useClient(id: string) {
   });
 }
 
-export function useCreateClient(onError?: (error: DuplicateFieldError) => void) {
+export function useCreateClient() {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -47,16 +47,10 @@ export function useCreateClient(onError?: (error: DuplicateFieldError) => void) 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
     },
-    onError: (error: unknown) => {
-      const dup = extractDuplicateError(error);
-      if (dup && onError) {
-        onError(dup);
-      }
-    },
   });
 }
 
-export function useUpdateClient(onError?: (error: DuplicateFieldError) => void) {
+export function useUpdateClient() {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -68,12 +62,6 @@ export function useUpdateClient(onError?: (error: DuplicateFieldError) => void) 
         queryClient.invalidateQueries({ queryKey: ['withholdingRecords'] }),
       ]);
     },
-    onError: (error: unknown) => {
-      const dup = extractDuplicateError(error);
-      if (dup && onError) {
-        onError(dup);
-      }
-    },
   });
 }
 
@@ -81,7 +69,7 @@ export function useDeleteClient() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => clientService.delete(id),
+    mutationFn: ({ id, confirm }: { id: string; confirm?: boolean }) => clientService.delete(id, confirm),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
     },

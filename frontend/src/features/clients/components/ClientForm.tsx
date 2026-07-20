@@ -51,6 +51,8 @@ const BUSINESS_TYPES_BY_CLIENT_TYPE: Record<string, string[]> = {
 };
 
 const REGISTRATION_FIELDS = [
+  { field: 'sales_tax_registered' as const, label: 'Sales Tax' },
+  { field: 'withholding_registered' as const, label: 'Withholding' },
   { field: 'kpra_registered' as const, label: 'KPRA' },
 ];
 

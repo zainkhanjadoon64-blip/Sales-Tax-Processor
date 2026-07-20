@@ -31,8 +31,9 @@ export const clientService = {
     return apiClient.put<Client>(`/clients/${id}`, data);
   },
 
-  async delete(id: string): Promise<{ success: boolean; message: string }> {
-    return apiClient.delete<{ success: boolean; message: string }>(`/clients/${id}`);
+  async delete(id: string, confirm?: boolean): Promise<{ success: boolean; message: string }> {
+    const query = confirm ? '?confirm=true' : '';
+    return apiClient.delete<{ success: boolean; message: string }>(`/clients/${id}${query}`);
   },
 
   async exportCsv(filters?: ClientFilters): Promise<Blob> {

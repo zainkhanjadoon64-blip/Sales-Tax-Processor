@@ -306,6 +306,14 @@ def create_client(
     db.add(client)
     db.commit()
     db.refresh(client)
+
+    # Auto-create filesystem folder structure for this client
+    try:
+        from app.services.folder_service import ensure_client_folder_structure
+        ensure_client_folder_structure(client.client_name)
+    except Exception:
+        pass  # Non-critical: folder creation should not block client creation
+
     return client
 
 @router.get("/stats", response_model=ClientStats)
@@ -610,6 +618,7 @@ def update_client(
 @router.delete("/{client_id}")
 def delete_client(
     client_id: UUID,
+    confirm: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -617,20 +626,76 @@ def delete_client(
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
     
-    # Check for related records
     from app.models.sales_tax import SalesTaxRecord
     from app.models.withholding import WithholdingRecord
     from app.models.document import Document
+    from app.models.task import Task
+    from app.models.notification import Notification
     
-    if db.query(SalesTaxRecord).filter(SalesTaxRecord.client_id == client_id).first():
-        raise HTTPException(status_code=409, detail="Cannot delete client with sales tax records")
+    # Count related records
+    doc_count = db.query(Document).filter(Document.client_id == client_id).count()
+    sales_tax_count = db.query(SalesTaxRecord).filter(SalesTaxRecord.client_id == client_id).count()
+    withholding_count = db.query(WithholdingRecord).filter(WithholdingRecord.client_id == client_id).count()
+    task_count = db.query(Task).filter(Task.client_id == client_id).count()
+    notification_count = db.query(Notification).filter(Notification.client_id == client_id).count()
     
-    if db.query(WithholdingRecord).filter(WithholdingRecord.client_id == client_id).first():
-        raise HTTPException(status_code=409, detail="Cannot delete client with withholding records")
+    has_folder: bool = False
+    storage_path = None
+    try:
+        from app.services.folder_service import get_clients_storage
+        storage_path = get_clients_storage() / (client.business_name or client.client_name).strip()
+        has_folder = storage_path.exists()
+    except Exception:
+        pass
     
-    if db.query(Document).filter(Document.client_id == client_id).first():
-        raise HTTPException(status_code=409, detail="Cannot delete client with documents")
+    # If confirm=true and there are related records, delete everything
+    if confirm:
+        db.query(SalesTaxRecord).filter(SalesTaxRecord.client_id == client_id).delete()
+        db.query(WithholdingRecord).filter(WithholdingRecord.client_id == client_id).delete()
+        db.query(Document).filter(Document.client_id == client_id).delete()
+        # Tasks and notifications use SET NULL, so we can leave them or optionally delete
+        db.delete(client)
+        db.commit()
+        
+        # Optionally remove the filesystem folder
+        folder_deleted = False
+        if has_folder and storage_path:
+            try:
+                import shutil
+                shutil.rmtree(str(storage_path), ignore_errors=True)
+                folder_deleted = True
+            except Exception:
+                pass
+        
+        return {
+            "success": True,
+            "message": f"Client '{client.client_name}' and all related records deleted successfully.",
+            "details": {
+                "documents_deleted": doc_count,
+                "sales_tax_records_deleted": sales_tax_count,
+                "withholding_records_deleted": withholding_count,
+                "folder_deleted": folder_deleted,
+            }
+        }
     
-    db.delete(client)
-    db.commit()
-    return {"success": True, "message": "Client deleted successfully"}
+    # If no related records, delete directly
+    if doc_count == 0 and sales_tax_count == 0 and withholding_count == 0:
+        db.delete(client)
+        db.commit()
+        return {"success": True, "message": "Client deleted successfully"}
+    
+    # Return summary of related records — frontend can show a warning dialog
+    raise HTTPException(
+        status_code=409,
+        detail={
+            "message": f"Client '{client.client_name}' has related records.",
+            "has_related": True,
+            "document_count": doc_count,
+            "sales_tax_count": sales_tax_count,
+            "withholding_count": withholding_count,
+            "task_count": task_count,
+            "notification_count": notification_count,
+            "has_folder": has_folder,
+            "client_name": client.client_name,
+        }
+    )

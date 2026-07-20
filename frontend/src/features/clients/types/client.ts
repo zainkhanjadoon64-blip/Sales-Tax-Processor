@@ -103,7 +103,7 @@ export interface ClientUpdate {
   withholding_153_applicable?: boolean;
   withholding_153_prepared_by_us?: boolean;
   withholding_filing_frequency?: string;
-  id?: number;
+  id?: string;
 }
 
 export interface ClientListResponse {

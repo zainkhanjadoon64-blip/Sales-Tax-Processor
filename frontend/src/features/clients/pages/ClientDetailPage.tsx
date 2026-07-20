@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { useClient, useClientActivity, useUpdateClient, useCreateClient, useDeleteClient } from '../hooks/useClients';
+import { useClient, useClientActivity, useUpdateClient, useCreateClient, useDeleteClient,
+  extractDuplicateError,
+} from '../hooks/useClients';
 import { useSalesTaxByClient, useCreateSalesTaxRecord, useUpdateSalesTaxRecord, useDeleteSalesTaxRecord } from '../../sales-tax/hooks/useSalesTax';
 import { useWithholdingByClient, useCreateWithholdingRecord, useUpdateWithholdingRecord, useDeleteWithholdingRecord } from '../../withholding/hooks/useWithholding';
 import { ClientForm } from '../components/ClientForm';
@@ -134,10 +136,6 @@ export function ClientDetailPage() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [pageMessage, setPageMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  function handleDuplicateError(err: { field: string; message: string; conflicting_client_name?: string }) {
-    setFormErrors({ [err.field]: err.message });
-  }
-
   const setTab = useCallback((tab: TabId) => {
     setActiveTab(tab);
     window.history.replaceState(null, '', `${location.pathname}#${tab}`);
@@ -192,7 +190,7 @@ export function ClientDetailPage() {
   const { data: reportsData, refetch: refetchReports } = useReports();
 
   // Mutations
-  const updateClientMutation = useUpdateClient(handleDuplicateError);
+  const updateClientMutation = useUpdateClient();
   const createClientMutation = useCreateClient();
   const createSalesTaxMutation = useCreateSalesTaxRecord();
   const updateSalesTaxMutation = useUpdateSalesTaxRecord();
@@ -249,7 +247,7 @@ export function ClientDetailPage() {
   if (client?.business_type) classificationBadges.push({ label: client.business_type, color: 'bg-amber-100 text-amber-800' });
 
   // Handlers
-  const handleSubmit = useCallback(async (data: any) => {
+    const handleSubmit = useCallback(async (data: any) => {
     setFormErrors({});
     try {
       if (clientId) {
@@ -261,13 +259,14 @@ export function ClientDetailPage() {
       }
       setIsEditing(false);
     } catch (err: unknown) {
-      if ((err as { response?: { status?: number } })?.response?.status !== 409) {
+      const dup = extractDuplicateError(err);
+      if (dup) {
+        setFormErrors({ [dup.field]: dup.message });
+      } else {
         setPageMessage({ type: 'error', text: 'Failed to save client. Please try again.' });
       }
-      throw err;
     }
   }, [clientId, updateClientMutation, createClientMutation]);
-
   // Sales Tax CRUD
   const handleSalesTaxSubmit = useCallback(async (data: any) => {
     try {
@@ -464,7 +463,7 @@ export function ClientDetailPage() {
     if (!clientId) return;
     setDeleteLoading(true);
     try {
-      await deleteClientMutation.mutateAsync(clientId);
+      await deleteClientMutation.mutateAsync({ id: clientId });
       navigate('/clients');
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;

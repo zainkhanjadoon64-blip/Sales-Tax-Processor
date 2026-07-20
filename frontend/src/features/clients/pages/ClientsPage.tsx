@@ -14,8 +14,9 @@ import {
 
   useExportClients,
 
+  extractDuplicateError,
+  DuplicateFieldError,
 } from '../hooks/useClients';
-import type { DuplicateFieldError } from '../hooks/useClients';
 
 import { ClientTable } from '../components/ClientTable';
 
@@ -102,6 +103,16 @@ export function ClientsPage() {
 
   const [deleteConfirm, setDeleteConfirm] = useState<Client | null>(null);
 
+  const [deleteWarning, setDeleteWarning] = useState<{
+    clientId: string;
+    clientName: string;
+    document_count: number;
+    sales_tax_count: number;
+    withholding_count: number;
+    task_count: number;
+    has_folder: boolean;
+  } | null>(null);
+
   const [conflictDialog, setConflictDialog] = useState<{
     error: DuplicateFieldError;
     formData: any;
@@ -154,9 +165,9 @@ export function ClientsPage() {
 
   const { data, isLoading, isRefetching, error, refetch } = useClients(queryFilters);
 
-  const createMutation = useCreateClient(handleDuplicateError);
+  const createMutation = useCreateClient();
 
-  const updateMutation = useUpdateClient(handleDuplicateError);
+  const updateMutation = useUpdateClient();
 
   const deleteMutation = useDeleteClient();
 
@@ -174,27 +185,7 @@ export function ClientsPage() {
 
 
 
-  function handleDuplicateError(dup: DuplicateFieldError) {
-
-    // If the backend tells us which client owns the value, show conflict dialog
-    if (dup.conflicting_client_id && dup.conflicting_client_name) {
-      // Store conflict info — the form data will be captured at submit time
-      // via the closure in handleCreate/handleUpdate
-      setConflictDialog({
-        error: dup,
-        formData: null, // filled in by handleCreate/handleUpdate before re-throw
-        editingClient: editingClient,
-      });
-    } else {
-      // Fallback: just show field error (old behavior)
-      setFormErrors({ [dup.field]: dup.message });
-    }
-
-  }
-
-
-
-  const handleCreate = useCallback(async (formData: any) => {
+    const handleCreate = useCallback(async (formData: any) => {
 
     setFormErrors({});
 
@@ -214,18 +205,21 @@ export function ClientsPage() {
 
     } catch (err) {
 
-      const status = (err as any)?.response?.status;
+      const dup = extractDuplicateError(err);
 
-      if (status !== 409) {
+      if (dup && dup.conflicting_client_id && dup.conflicting_client_name) {
+
+        setConflictDialog({ error: dup, formData, editingClient: null });
+
+      } else if (dup) {
+
+        setFormErrors({ [dup.field]: dup.message });
+
+      } else {
 
         setPageError(getApiErrorMessage(err));
 
-      } else {
-        // Attach formData to the conflict dialog so we can retry after resolution
-        setConflictDialog((prev) => prev ? { ...prev, formData } : null);
       }
-
-      throw err;
 
     }
 
@@ -251,52 +245,117 @@ export function ClientsPage() {
 
     } catch (err) {
 
-      const status = (err as any)?.response?.status;
+      const dup = extractDuplicateError(err);
 
-      if (status !== 409) {
+      if (dup && dup.conflicting_client_id && dup.conflicting_client_name) {
+
+        setConflictDialog({ error: dup, formData, editingClient });
+
+      } else if (dup) {
+
+        setFormErrors({ [dup.field]: dup.message });
+
+      } else {
 
         setPageError(getApiErrorMessage(err));
 
-      } else {
-        // Attach formData to the conflict dialog so we can retry after resolution
-        setConflictDialog((prev) => prev ? { ...prev, formData } : null);
       }
-
-      throw err;
 
     }
 
-  }, [updateMutation, editingClient]);
-
-
-
-  const handleDeleteConfirm = async () => {
+  }, [updateMutation, editingClient]);  const handleDeleteConfirm = async () => {
 
     if (!deleteConfirm) return;
 
     try {
 
-      await deleteMutation.mutateAsync(deleteConfirm.id);
+      await deleteMutation.mutateAsync({ id: deleteConfirm.id });
 
       setSuccessMessage(`Client "${deleteConfirm.client_name}" deleted successfully.`);
 
       setPageError('');
 
+      setDeleteConfirm(null);
+
     } catch (err: unknown) {
 
-      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      const detail = (err as { response?: { data?: { detail?: any } } })?.response?.data?.detail;
 
-      setPageError(typeof detail === 'string' ? detail : 'Failed to delete client.');
+      if (detail && typeof detail === 'object' && detail.has_related) {
+        // Show warning dialog with related records info
+        setDeleteWarning({
+          clientId: deleteConfirm.id,
+          clientName: detail.client_name,
+          document_count: detail.document_count || 0,
+          sales_tax_count: detail.sales_tax_count || 0,
+          withholding_count: detail.withholding_count || 0,
+          task_count: detail.task_count || 0,
+          has_folder: detail.has_folder || false,
+        });
+        setDeleteConfirm(null);
+      } else {
+        setPageError(typeof detail === 'string' ? detail : 'Failed to delete client.');
+        setDeleteConfirm(null);
+      }
 
     }
 
-    setDeleteConfirm(null);
+  };
+
+  const handleDeleteWithRelated = async () => {
+
+    if (!deleteWarning) return;
+
+    try {
+
+      await deleteMutation.mutateAsync({ id: deleteWarning.clientId, confirm: true });
+
+      setSuccessMessage(`Deleted "${deleteWarning.clientName}" and all related records.`);
+
+      setPageError('');
+
+    } catch (err) {
+
+      setPageError('Failed to delete client with related records.');
+
+    }
+
+    setDeleteWarning(null);
 
   };
 
 
 
-  const handleConflictUpdateExisting = async () => {
+    const handleConflictUpdateCurrentClient = async () => {
+
+    if (!conflictDialog) return;
+
+    const { error, formData, editingClient: original } = conflictDialog;
+
+    try {
+      // Clear the conflicting field on the other client, then save the current client
+      const clearField: Record<string, string | null> = {};
+      clearField[error.field] = null;
+      await updateMutation.mutateAsync({ id: error.conflicting_client_id!, data: clearField });
+
+      if (original) {
+        await updateMutation.mutateAsync({ id: original.id, data: formData });
+      } else {
+        await createMutation.mutateAsync(formData);
+      }
+
+      setSuccessMessage(`Saved to "${original ? original.client_name : 'new client'}" and cleared ${error.field.toUpperCase()} from "${error.conflicting_client_name}".`);
+      setConflictDialog(null);
+      setIsFormOpen(false);
+      setEditingClient(null);
+    } catch (err) {
+      setPageError(getApiErrorMessage(err));
+      setConflictDialog(null);
+    }
+
+  };
+
+  const handleConflictUpdateOtherClient = async () => {
 
     if (!conflictDialog) return;
 
@@ -315,9 +374,7 @@ export function ClientsPage() {
       setConflictDialog(null);
     }
 
-  };
-
-  const handleConflictDeleteExisting = async () => {
+  };const handleConflictDeleteExisting = async () => {
 
     if (!conflictDialog) return;
 
@@ -325,7 +382,7 @@ export function ClientsPage() {
 
     try {
       // Delete the conflicting client, then save the current client
-      await deleteMutation.mutateAsync(error.conflicting_client_id!);
+      await deleteMutation.mutateAsync({ id: error.conflicting_client_id! });
 
       if (original) {
         // We were editing — update the original client
@@ -466,6 +523,8 @@ export function ClientsPage() {
     salesTax: clients.filter((c) => c.sales_tax_registered).length,
 
     withholding: clients.filter((c) => c.withholding_registered).length,
+
+    kpra: clients.filter((c) => c.kpra_registered).length,
 
     thisMonth: clients.filter(
 
@@ -1032,6 +1091,45 @@ export function ClientsPage() {
 
       )}
 
+      {deleteWarning && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black/50 transition-opacity" onClick={() => setDeleteWarning(null)} aria-hidden="true" />
+            <div className="relative w-full max-w-md bg-white rounded-xl shadow-xl p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-2 bg-red-100 rounded-full flex-shrink-0">
+                  <AlertTriangle className="h-6 w-6 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-slate-900">Delete Client &amp; Related Records</h3>
+                  <p className="mt-2 text-sm text-slate-500">
+                    <strong>{deleteWarning.clientName}</strong> has the following related records that will also be deleted:
+                  </p>
+                  <ul className="mt-2 text-sm text-slate-600 space-y-1">
+                    {deleteWarning.document_count > 0 && <li className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-400 shrink-0" />{deleteWarning.document_count} document(s)</li>}
+                    {deleteWarning.sales_tax_count > 0 && <li className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-400 shrink-0" />{deleteWarning.sales_tax_count} sales tax record(s)</li>}
+                    {deleteWarning.withholding_count > 0 && <li className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-400 shrink-0" />{deleteWarning.withholding_count} withholding record(s)</li>}
+                    {deleteWarning.task_count > 0 && <li className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-400 shrink-0" />{deleteWarning.task_count} task(s)</li>}
+                    {deleteWarning.has_folder && <li className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-400 shrink-0" />Filesystem folder</li>}
+                  </ul>
+                  <p className="mt-3 text-sm text-red-600 font-medium">
+                    This action cannot be undone.
+                  </p>
+                  <div className="mt-6 flex justify-end gap-3">
+                    <button onClick={() => setDeleteWarning(null)} className="btn-secondary" disabled={deleteMutation.isPending}>
+                      Cancel
+                    </button>
+                    <button onClick={handleDeleteWithRelated} className="btn-danger" disabled={deleteMutation.isPending}>
+                      {deleteMutation.isPending ? 'Deleting...' : 'Delete Everything'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {conflictDialog && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex min-h-full items-center justify-center p-4">
@@ -1051,18 +1149,25 @@ export function ClientsPage() {
                   </p>
                   <div className="mt-6 flex flex-col gap-2">
                     <button
-                      onClick={handleConflictUpdateExisting}
+                      onClick={handleConflictUpdateCurrentClient}
                       className="btn-primary w-full justify-center"
                       disabled={updateMutation.isPending || deleteMutation.isPending}
                     >
-                      Update ""
+                      Update Current Client
+                    </button>
+                    <button
+                      onClick={handleConflictUpdateOtherClient}
+                      className="btn-secondary w-full justify-center"
+                      disabled={updateMutation.isPending || deleteMutation.isPending}
+                    >
+                      Update &quot;{conflictDialog.error.conflicting_client_name}&quot;
                     </button>
                     <button
                       onClick={handleConflictDeleteExisting}
                       className="btn-danger w-full justify-center"
                       disabled={updateMutation.isPending || deleteMutation.isPending}
                     >
-                      Delete "" &amp; Save Current
+                      Delete &quot;{conflictDialog.error.conflicting_client_name}&quot; &amp; Save Current
                     </button>
                     <button
                       onClick={handleConflictCancel}
