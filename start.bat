@@ -56,17 +56,7 @@ REM ============================================
 REM Step 3: Apply database migrations (optional - skip if DB is not available)
 REM ============================================
 cd /d "%ROOT_DIR%"
-if exist "%ROOT_DIR%\alembic.ini" (
-    echo Applying database migrations...
-    "%PYTHON_CMD%" -m alembic upgrade head 2>nul
-    if !errorlevel! neq 0 (
-        echo [WARNING] Database migration failed - this may be OK if using SQLite.
-    ) else (
-        echo [OK] Database migrations applied.
-    )
-) else (
-    echo [SKIP] No alembic.ini found, skipping migrations.
-)
+echo [SKIP] Database migrations are applied automatically at app startup.
 echo.
 
 REM ============================================
